@@ -1,0 +1,32 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# DB / ORM
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+
+# バリデーション
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# HTTP クライアント (LLM / TTS 呼び出し)
+httpx==0.27.2
+
+# ファイル処理
+python-multipart==0.0.12
+aiofiles==24.1.0
+
+# 音声ファイル長の取得
+soundfile==0.12.1
+numpy==1.26.4
+
+# PPTX 解析 (既存 engine/pptx_outline.py が依存)
+python-pptx==1.0.2
+# 取り込み画像の縮小・再エンコード (レンダリング時の Chrome メモリ削減)
+Pillow==11.0.0
+pyyaml==6.0.2
+beautifulsoup4==4.12.3
+
+# 音声リサンプリング
+scipy==1.13.1
+

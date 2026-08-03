@@ -1,0 +1,77 @@
+# AI-MovGen — メイン Docker Compose
+#
+# 起動: bash start.sh
+# 停止: bash stop.sh
+#
+# ネットワーク構成:
+#   frontend    : webapp (Nginx) ↔ api ↔ ホストブラウザ
+
+networks:
+  frontend:
+    driver: bridge
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # webapp: Vue.js + Vuetify ビルド済み静的ファイルを Nginx で配信
+  #         /api/* は api コンテナへリバースプロキシ
+  # ──────────────────────────────────────────────────────────
+  webapp:
+    build:
+      context: ./webapp/frontend
+      dockerfile: Dockerfile
+    container_name: heygen_webapp
+    platform: linux/arm64
+    networks:
+      - frontend
+    ports:
+      - "3000:80"        # ブラウザアクセス: http://localhost:3000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  # api: FastAPI バックエンド
+  #      フロントエンドからの /api/* リクエストを処理
+  #      ホスト側の Qwen3-TTS および ローカル LLM にアクセス
+  # ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./webapp/backend
+      dockerfile: Dockerfile
+    container_name: heygen_api
+    platform: linux/arm64
+    networks:
+      - frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # プロジェクトファイル (既存ディレクトリ構造を維持)
+      - ./projects:/app/projects
+      - ./engine:/app/engine
+      - ./templates:/app/templates
+      # DB ファイル
+      - ./data:/app/data
+      # 話者サンプル音声 (api と共有)
+      - ./engine/voice_samples:/app/voice_samples
+    environment:
+      # 文章生成・音声合成・レンダリングはすべてローカルで完結する。
+      # 外部 AI サービスは使わないため、API キーの類は一切必要ない。
+      #
+      # ホスト側 TTS サーバー
+      - QWEN3_TTS_BASE_URL=${QWEN3_TTS_BASE_URL:-http://host.docker.internal:8100}
+      # ローカル LLM (ホスト側の Ollama)
+      - LOCAL_LLM_BASE_URL=${LOCAL_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-qwen3:14b}
+      # ホスト側 HyperFrames レンダラー
+      - RENDERER_BASE_URL=${RENDERER_BASE_URL:-http://host.docker.internal:8200}
+      # アプリ設定
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped

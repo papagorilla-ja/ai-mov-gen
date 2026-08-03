@@ -1,0 +1,1003 @@
+/* ==========================================================================
+   HyperFrames Training Video CSS — デザイントークン駆動版
+
+   このファイルは新規プロジェクトの「土台」であり、色や書体を直接書かない。
+   見た目に関わる値はすべて CSS カスタムプロパティ（トークン）を参照し、
+   実際の値は composition.py が動画ごとに :root として「このファイルの後ろ」に
+   注入する。
+
+   ★ 重要 ★
+   ここにある :root は「注入が無いとき（テンプレートを直接開いたとき）だけ
+   効くフォールバック」である。composition.py が生成する :root は必ず
+   このファイルの後ろに連結すること。順序を逆にすると、こちらが後勝ちして
+   ユーザーのスタイル設定が一切反映されなくなる。
+
+   構成:
+     1. 同梱フォント
+     2. トークンのフォールバック定義
+     3. リセットと土台
+     4. プレビュー用ダッシュボード（映像には写らない）
+     5. ステージと背景モチーフ
+     6. スライドの土台・装飾スタイル・タイポスケール
+     7. スライド構成要素
+   ========================================================================== */
+
+/* ==========================================================================
+   1. 同梱フォント
+
+   レンダリングを外部ネットワークに依存させないため、Web フォントの取得は行わず
+   リポジトリに同梱した woff2 だけを読み込む。他の選択肢は macOS の
+   システムフォントを直接指定する（design_tokens.py の FONT_CHOICES を参照）。
+   ========================================================================== */
+@font-face {
+  font-family: 'BIZ UDPGothic';
+  src: url('fonts/BIZUDPGothic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* レンダラーは描画開始前にフォント読込を待たない場合がある。
+     swap ではなく block にして、未ロード状態で描き始めるのを防ぐ。 */
+  font-display: block;
+}
+@font-face {
+  font-family: 'BIZ UDPGothic';
+  src: url('fonts/BIZUDPGothic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+/* ==========================================================================
+   2. トークンのフォールバック定義（注入が無いときだけ効く）
+   ========================================================================== */
+:root {
+  /* ---- 配色 ---- */
+  --color-primary: #6366f1;
+  --color-secondary: #8b5cf6;
+  --color-accent: #22d3ee;
+  --color-primary-rgb: 99, 102, 241;
+  --color-secondary-rgb: 139, 92, 246;
+  --color-accent-rgb: 34, 211, 238;
+  --color-primary-glow: rgba(99, 102, 241, 0.16);
+  --color-accent-glow: rgba(34, 211, 238, 0.14);
+  --on-primary: #ffffff;
+  --on-accent: #111111;
+
+  /* ---- 背景と面 ---- */
+  --bg-main: #0f0f1a;
+  --bg-main-rgb: 15, 15, 26;
+  --bg-elevated: #1c1c2b;
+  --bg-elevated-strong: #2a2a3d;
+  --surface-glass: rgba(28, 28, 43, 0.68);
+
+  /* ---- 文字 ---- */
+  --text-primary: #f8fafc;
+  --text-secondary: #b4b6c4;
+  --text-muted: #7a7c8c;
+  --title-grad-from: #f8fafc;
+  --title-grad-to: #a5dced;
+  --section-grad-to: #3ad2ea;
+
+  /* ---- 罫線と影 ---- */
+  --border-glass: rgba(255, 255, 255, 0.09);
+  --border-glass-hover: rgba(255, 255, 255, 0.20);
+  --border-strong: rgba(255, 255, 255, 0.20);
+  --grid-line: rgba(255, 255, 255, 0.025);
+  --shadow-soft: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+  --shadow-strong: 0 26px 60px -20px rgba(0, 0, 0, 0.70);
+
+  /* ---- 書体 ---- */
+  --font-heading: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif;
+  --font-body: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif;
+
+  /* ---- キャンバス ---- */
+  --canvas-width: 1920px;
+  --canvas-height: 1080px;
+
+  /* ---- タイポスケール（type-* クラスが上書きする） ---- */
+  --ts: 1;
+  --gap-scale: 1;
+  --lh-body: 1.65;
+
+  /* ---- スライド背景の覆いの濃さ（レイアウト種別が上書きする） ---- */
+  --veil: 0.55;
+
+  /* ---- ダッシュボード専用の固定色 ----
+     プレビュー用の操作UIは映像に写らないため、ユーザーの配色に追従させない。
+     追従させると白テーマの動画を編集した瞬間にUIが白背景×白文字になり操作不能になる。 */
+  --ui-bg: #0b0f19;
+  --ui-bg-deep: #080a10;
+  --ui-bg-panel: #090c15;
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-text: #f3f4f6;
+  --ui-text-dim: #9ca3af;
+  --ui-text-muted: #6b7280;
+  --ui-accent: #6366f1;
+  --ui-accent-2: #22d3ee;
+
+  /* ---- ダッシュボードの寸法 ---- */
+  --sidebar-width: 320px;
+  --panel-width: 300px;
+  --controls-height: 80px;
+  --stage-scale: 1;
+}
+
+/* ==========================================================================
+   3. リセットと土台
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* スクロールバー（プレビューのみで見える） */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ==========================================================================
+   4. プレビュー用ダッシュボード
+
+   既定はレンダリング用の表示（#stage だけが原寸で左上原点に置かれる）。
+   ダッシュボードは index.html?preview=1 のときだけ body.preview-mode で出す。
+   「既定＝レンダリング」にしているのは、JS が読み込めない等の異常時でも
+   映像にダッシュボードUIが写り込まないようにするため。
+
+   この節の色はすべて --ui-* （固定色）を使い、動画のテーマから独立させる。
+   ========================================================================== */
+#preview-dashboard { display: none; }
+
+body.preview-mode #preview-dashboard {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr var(--panel-width);
+  grid-template-rows: 1fr var(--controls-height);
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: 'Hiragino Sans', sans-serif;
+}
+
+.dashboard-sidebar {
+  background-color: var(--ui-bg-panel);
+  border-right: 1px solid var(--ui-border);
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--ui-border);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent);
+}
+.sidebar-header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-header h1 span {
+  background: linear-gradient(to right, var(--ui-accent), var(--ui-accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sidebar-header p { font-size: 0.75rem; color: var(--ui-text-muted); margin-top: 4px; }
+
+.slide-list { flex: 1; overflow-y: auto; padding: 10px; }
+
+.slide-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+.slide-item:hover { background-color: rgba(255, 255, 255, 0.05); border-color: var(--ui-border); }
+.slide-item.active { background-color: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.4); }
+
+.slide-item-num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ui-text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slide-item.active .slide-item-num { color: var(--ui-accent); background: rgba(99, 102, 241, 0.15); }
+
+.slide-item-title {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ui-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slide-item.active .slide-item-title { color: var(--ui-text); }
+.slide-item-time { font-size: 0.7rem; color: var(--ui-text-muted); }
+
+.dashboard-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background-color: var(--ui-bg-deep);
+  overflow: hidden;
+  position: relative;
+}
+
+.dashboard-panel {
+  background-color: var(--ui-bg-panel);
+  border-left: 1px solid var(--ui-border);
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header { padding: 20px; border-bottom: 1px solid var(--ui-border); }
+.panel-header h2 { font-size: 0.95rem; font-weight: 600; color: var(--ui-text); }
+
+.track-timeline {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+.track-row {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.track-name {
+  font-weight: 500;
+  color: var(--ui-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-bar-container {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.track-bar-fill {
+  position: absolute;
+  height: 100%;
+  background: linear-gradient(to right, var(--ui-accent), var(--ui-accent-2));
+  border-radius: 3px;
+}
+
+.panel-footer { padding: 20px; border-top: 1px solid var(--ui-border); background: rgba(0, 0, 0, 0.2); }
+.render-cmd-box {
+  background: #05070c;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 0.65rem;
+  color: var(--ui-accent-2);
+  word-break: break-all;
+}
+
+.dashboard-controls {
+  background-color: var(--ui-bg);
+  border-top: 1px solid var(--ui-border);
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  align-items: center;
+  padding: 0 30px;
+  grid-column: 2;
+  grid-row: 2;
+  height: var(--controls-height);
+}
+.control-left, .control-right { display: flex; align-items: center; gap: 15px; }
+.control-right { justify-content: flex-end; }
+.time-display { font-family: monospace; font-size: 0.8rem; color: var(--ui-text-dim); }
+
+.scrub-timeline { display: flex; align-items: center; gap: 15px; width: 100%; }
+.progress-bar-outer {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+.progress-bar-outer:hover { height: 10px; }
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, var(--ui-accent), var(--ui-accent-2));
+  border-radius: 4px;
+  position: relative;
+}
+.progress-bar-handle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.15s ease;
+}
+.progress-bar-outer:hover .progress-bar-handle { transform: translateY(-50%) scale(1); }
+
+.btn-control {
+  background: none;
+  border: none;
+  color: var(--ui-text-dim);
+  cursor: pointer;
+  font-size: 1.2rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.btn-control:hover { color: var(--ui-text); background: rgba(255, 255, 255, 0.05); }
+.btn-control.btn-play-pause {
+  background: var(--ui-accent);
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+.btn-control.btn-play-pause:hover { background: #5053e6; transform: scale(1.05); }
+
+.speed-select {
+  background: #111827;
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-dim);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   5. ステージと背景モチーフ
+
+   レンダリング時はビューポート左上に原寸で置く。hyperframes はこの要素を
+   ルートコンポジションとして data-width x data-height で切り出す。
+   ========================================================================== */
+#stage {
+  width: var(--canvas-width, 1920px);
+  height: var(--canvas-height, 1080px);
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background-color: var(--bg-main);
+}
+
+/* プレビュー時はダッシュボード中央セルの上に縮小して重ねる。
+   位置と倍率は app.js が --stage-left / --stage-top / --stage-scale に書き込む。 */
+body.preview-mode #stage {
+  position: fixed;
+  top: var(--stage-top, 0px);
+  left: var(--stage-left, 0px);
+  transform: scale(var(--stage-scale, 1));
+  transform-origin: top left;
+  border-radius: 8px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+/* 背景は「模様の層」と「光の層」の2枚。中身は空で、
+   #stage に付く motif-* クラスが両方の描画内容を決める。 */
+.stage-bg-motif,
+.stage-bg-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---- grid: 細かい方眼。情報密度の高い資料に馴染む ---- */
+.motif-grid .stage-bg-motif {
+  background-size: 60px 60px;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+}
+.motif-grid .stage-bg-glow {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(var(--color-primary-rgb), 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 20% 80%, rgba(var(--color-secondary-rgb), 0.08) 0%, transparent 60%);
+}
+
+/* ---- mesh: 色玉をぼかして重ねた柔らかいグラデーション ---- */
+.motif-mesh .stage-bg-motif {
+  /* blur は要素の縁をぼかすため、画面外まで広げて縁の色抜けを防ぐ */
+  inset: -80px;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 15%, rgba(var(--color-primary-rgb), 0.30) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 45% at 85% 25%, rgba(var(--color-accent-rgb), 0.22) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 70% 90%, rgba(var(--color-secondary-rgb), 0.26) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 25% 85%, rgba(var(--color-accent-rgb), 0.16) 0%, transparent 65%);
+  filter: blur(40px);
+}
+.motif-mesh .stage-bg-glow { background: none; }
+
+/* ---- dots: 等間隔の点。軽快で親しみやすい ---- */
+.motif-dots .stage-bg-motif {
+  background-image: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.22) 1.6px, transparent 1.6px);
+  background-size: 46px 46px;
+}
+.motif-dots .stage-bg-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(var(--color-accent-rgb), 0.10) 0%, transparent 55%);
+}
+
+/* ---- waves: 斜めの帯。動きと奥行きが出る ---- */
+.motif-waves .stage-bg-motif {
+  background-image: repeating-linear-gradient(
+    -32deg,
+    rgba(var(--color-primary-rgb), 0.09) 0px,
+    rgba(var(--color-primary-rgb), 0.09) 3px,
+    transparent 3px,
+    transparent 58px
+  );
+}
+.motif-waves .stage-bg-glow {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(var(--color-accent-rgb), 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 55% at 0% 100%, rgba(var(--color-secondary-rgb), 0.14) 0%, transparent 60%);
+}
+
+/* ---- noise: 微細な粒状の質感。落ち着いた紙のような印象 ----
+   feTurbulence を data URI で埋め込む。外部ファイルを増やさず、
+   レンダリング時のネットワーク参照も発生しない。 */
+.motif-noise .stage-bg-motif {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+}
+.motif-noise .stage-bg-glow {
+  background:
+    radial-gradient(ellipse 70% 60% at 20% 10%, rgba(var(--color-primary-rgb), 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 85%, rgba(var(--color-accent-rgb), 0.10) 0%, transparent 60%);
+}
+
+/* ---- plain: 無地。内容に集中させたいとき ---- */
+.motif-plain .stage-bg-motif,
+.motif-plain .stage-bg-glow { background: none; }
+
+/* ==========================================================================
+   6. スライドの土台・レイアウト別の背景強弱・装飾スタイル・タイポスケール
+   ========================================================================== */
+.slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: calc(80px * var(--gap-scale)) calc(100px * var(--gap-scale));
+  overflow: hidden;
+}
+
+.slide.active { opacity: 1; pointer-events: auto; }
+
+/* 背景の覆い。--veil が 0 なら背景モチーフがそのまま見え、1 なら完全に隠れる。
+   z-index を負にすることで、スライド内の通常フロー要素より必ず下に描かれる
+   （個々の要素に z-index を振らずに済む）。 */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bg-main);
+  opacity: var(--veil);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---- レイアウト種別による背景の強弱 ----
+   ランダムなばらつきは入れず、「節目は背景を強く、本文は控えめに」という
+   意味のある強弱だけをつける。同じ配色のまま見ていてリズムが生まれる。 */
+.slide.slide-layout-section_header { --veil: 0; }        /* 章の切り替わり: 背景を主役に */
+.slide.slide-layout-title { --veil: 0.12; }              /* 表紙: ほぼ背景を活かす */
+.slide.slide-layout-image_gallery { --veil: 0.72; }      /* 画像が主役なので背景は控えめに */
+.slide.slide-layout-full_image { --veil: 1; }            /* 全面画像: 背景装飾を完全に消す */
+.slide.slide-layout-table,
+.slide.slide-layout-graph_chart { --veil: 0.78; }        /* 可読性最優先。数字を邪魔しない */
+
+/* ---- 装飾オーブ（背景の抜け感） ----
+   覆いと同じ負のレイヤーに置き、本文より必ず下に来るようにする。 */
+.deco-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle, var(--color-primary-glow) 0%, transparent 70%);
+}
+.deco-orb-1 { width: 720px; height: 720px; right: -180px; top: -160px; }
+.deco-orb-2 {
+  width: 520px; height: 520px; left: -140px; bottom: -180px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+}
+/* 節目のシーンでは装飾も大きく見せる */
+.slide.slide-layout-section_header .deco-orb-1 { width: 980px; height: 980px; right: -260px; top: -240px; }
+.slide.slide-layout-section_header .deco-orb-2 { width: 720px; height: 720px; left: -220px; bottom: -260px; }
+
+/* ==========================================================================
+   装飾スタイル（カードや枠の質感）
+
+   同じ配色でも印象が大きく変わる部分。各スタイルはトークンを差し替えるだけで、
+   個々のコンポーネントは常に var(--surface-*) を参照する。
+   ========================================================================== */
+#stage {
+  /* 既定は glass。decor-* クラスが上書きする */
+  --surface-bg: var(--surface-glass);
+  --surface-border: 1px solid var(--border-glass);
+  --surface-blur: blur(12px);
+  --surface-radius: 20px;
+  --surface-shadow: var(--shadow-soft);
+  --accent-bar-opacity: 1;
+}
+#stage.decor-glass {
+  --surface-bg: var(--surface-glass);
+  --surface-border: 1px solid var(--border-glass);
+  --surface-blur: blur(12px);
+  --surface-radius: 20px;
+  --surface-shadow: var(--shadow-soft);
+  --accent-bar-opacity: 1;
+}
+#stage.decor-flat {
+  --surface-bg: var(--bg-elevated);
+  --surface-border: 1px solid transparent;
+  --surface-blur: none;
+  --surface-radius: 14px;
+  --surface-shadow: none;
+  --accent-bar-opacity: 1;
+}
+#stage.decor-outline {
+  --surface-bg: transparent;
+  --surface-border: 2px solid var(--border-strong);
+  --surface-blur: none;
+  --surface-radius: 16px;
+  --surface-shadow: none;
+  --accent-bar-opacity: 0;
+}
+#stage.decor-solid {
+  --surface-bg: var(--bg-elevated-strong);
+  --surface-border: 1px solid transparent;
+  --surface-blur: none;
+  --surface-radius: 18px;
+  --surface-shadow: var(--shadow-strong);
+  --accent-bar-opacity: 1;
+}
+
+/* 面（カード・行・吹き出し）の共通見た目。各コンポーネントはこれを継承する */
+.surface {
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: var(--surface-radius);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+
+/* ==========================================================================
+   タイポグラフィスケール
+
+   --ts は文字サイズ、--gap-scale は余白、--lh-body は行間の倍率。
+   個々の font-size は calc(基準値 * var(--ts)) で書く。
+   ========================================================================== */
+#stage.type-compact { --ts: 0.88; --gap-scale: 0.85; --lh-body: 1.5; }
+#stage.type-normal  { --ts: 1;    --gap-scale: 1;    --lh-body: 1.65; }
+#stage.type-relaxed { --ts: 1.12; --gap-scale: 1.15; --lh-body: 1.85; }
+
+/* ==========================================================================
+   7. スライド構成要素（composition.py が出力するクラス）
+   ========================================================================== */
+
+/* ===== 共通: 見出しブロック ===== */
+.slide-eyebrow {
+  align-self: flex-start;
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-heading);
+  font-size: calc(1.05rem * var(--ts));
+  font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: calc(18px * var(--gap-scale));
+}
+.slide-eyebrow::before {
+  content: ''; width: 48px; height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+}
+
+.slide-title {
+  font-family: var(--font-heading);
+  font-size: calc(3.4rem * var(--ts));
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: calc(36px * var(--gap-scale));
+  background: linear-gradient(to right, var(--title-grad-from), var(--title-grad-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.slide-body-area { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+/* ===== text_only: 本文をカードで見せる ===== */
+.body-card {
+  position: relative;
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-left: 5px solid var(--color-primary);
+  border-radius: 0 var(--surface-radius) var(--surface-radius) 0;
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(44px * var(--gap-scale)) calc(52px * var(--gap-scale));
+  max-width: 1500px;
+}
+.body-card .body-text {
+  font-size: calc(1.75rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  white-space: pre-line;
+  margin: 0;
+}
+.body-card::after {
+  content: ''; position: absolute; left: 44px; top: -18px;
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-radius: 10px; transform: rotate(45deg);
+  opacity: var(--accent-bar-opacity);
+}
+
+/* ===== bullet_list: 番号バッジ付きカード行 ===== */
+.bullet-list { display: flex; flex-direction: column; gap: calc(22px * var(--gap-scale)); }
+.bullet-item {
+  display: flex; align-items: center; gap: calc(28px * var(--gap-scale));
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: var(--surface-radius);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(26px * var(--gap-scale)) calc(34px * var(--gap-scale));
+  position: relative; overflow: hidden;
+}
+.bullet-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
+  opacity: var(--accent-bar-opacity);
+}
+.bullet-num {
+  flex-shrink: 0;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(1.5rem * var(--ts));
+  width: calc(62px * var(--gap-scale)); height: calc(62px * var(--gap-scale));
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.35);
+}
+.bullet-content p {
+  font-size: calc(1.5rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ===== card_panel: グリッドカード ===== */
+.card-grid { display: grid; gap: calc(32px * var(--gap-scale)); align-items: stretch; }
+.card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.info-card {
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: calc(var(--surface-radius) + 2px);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(40px * var(--gap-scale)) calc(34px * var(--gap-scale));
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: calc(16px * var(--gap-scale));
+}
+.info-card::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  opacity: var(--accent-bar-opacity);
+}
+.info-card-index {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(1.1rem * var(--ts));
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
+}
+.info-card-title {
+  font-family: var(--font-heading);
+  font-size: calc(1.7rem * var(--ts));
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+.info-card-text {
+  font-size: calc(1.28rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ===== comparison ===== */
+.comparison-container { display: flex; flex-direction: column; height: 100%; }
+.comparison-cols {
+  flex: 1; display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: stretch; gap: calc(36px * var(--gap-scale));
+}
+.comparison-col {
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: calc(var(--surface-radius) + 2px);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: 0 0 calc(40px * var(--gap-scale));
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.comparison-col-head {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: calc(1.5rem * var(--ts));
+  padding: calc(24px * var(--gap-scale)) calc(36px * var(--gap-scale));
+  color: var(--text-primary);
+  margin-bottom: calc(28px * var(--gap-scale));
+}
+.comparison-col.left .comparison-col-head {
+  background: linear-gradient(135deg, rgba(var(--color-secondary-rgb), 0.35), rgba(var(--color-secondary-rgb), 0.05));
+  border-bottom: 3px solid var(--color-secondary);
+}
+.comparison-col.right .comparison-col-head {
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.35), rgba(var(--color-accent-rgb), 0.05));
+  border-bottom: 3px solid var(--color-accent);
+}
+.comparison-col p {
+  font-size: calc(1.45rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  padding: 0 calc(36px * var(--gap-scale));
+  white-space: pre-line; margin: auto 0;
+}
+.comparison-vs {
+  align-self: center;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(1.25rem * var(--ts));
+  color: var(--on-primary);
+  width: 74px; height: 74px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  box-shadow: 0 0 36px rgba(var(--color-primary-rgb), 0.55);
+}
+
+/* ===== section_header ===== */
+.slide.slide-layout-section_header { align-items: center; justify-content: center; text-align: center; }
+.section-title {
+  font-family: var(--font-heading);
+  font-size: calc(5rem * var(--ts));
+  font-weight: 800; line-height: 1.15;
+  background: linear-gradient(120deg, var(--title-grad-from) 20%, var(--section-grad-to) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  max-width: 1500px;
+}
+.section-rule {
+  width: 160px; height: 5px; border-radius: 3px;
+  margin: calc(36px * var(--gap-scale)) 0;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+}
+.section-subtitle {
+  font-size: calc(1.7rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+  max-width: 1200px;
+}
+
+/* ===== table: 行カード型 ===== */
+.data-table {
+  width: 100%; border-collapse: separate; border-spacing: 0 12px;
+  font-size: calc(1.35rem * var(--ts));
+}
+.data-table thead th {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: calc(1rem * var(--ts));
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--color-accent);
+  text-align: left; padding: 0 32px 14px;
+}
+.data-table tbody tr { background: var(--surface-bg); }
+.data-table tbody td {
+  padding: calc(26px * var(--gap-scale)) 32px;
+  color: var(--text-primary);
+  border-top: var(--surface-border);
+  border-bottom: var(--surface-border);
+}
+.data-table tbody td:first-child {
+  border-left: var(--surface-border);
+  border-radius: 16px 0 0 16px;
+  font-weight: 600;
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+.data-table tbody td:last-child {
+  border-right: var(--surface-border);
+  border-radius: 0 16px 16px 0;
+}
+
+/* ===== chat_dialog ===== */
+.dialog-container {
+  display: flex; flex-direction: column; height: 100%;
+  gap: calc(24px * var(--gap-scale)); overflow-y: auto;
+}
+.dialog-line { display: flex; max-width: 78%; }
+.dialog-line.speaker-a { align-self: flex-start; }
+.dialog-line.speaker-b { align-self: flex-end; }
+.dialog-line .bubble {
+  padding: calc(22px * var(--gap-scale)) calc(28px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  font-size: calc(1.3rem * var(--ts));
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+.dialog-line.speaker-a .bubble {
+  border-bottom-left-radius: 4px;
+  border-left: 3px solid var(--color-secondary);
+}
+.dialog-line.speaker-b .bubble {
+  border-bottom-right-radius: 4px;
+  border-right: 3px solid var(--color-accent);
+}
+
+/* ===== graph_chart ===== */
+.chart-canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* ===== text_left_image_right: 左右2カラム ===== */
+.grid-2col {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: calc(60px * var(--gap-scale));
+  align-items: center; height: 100%;
+}
+.two-col-container { height: 100%; }
+.two-col-container .col-left,
+.two-col-container .col-right {
+  min-width: 0;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.two-col-container.reverse .col-left { order: 2; }
+.two-col-container.reverse .col-right { order: 1; }
+
+/* PPTX 由来の図解は白背景・濃色文字のことが多い。
+   囲みは常に明るい地にして、図解そのものが沈まないようにする
+   （ここだけはテーマに追従させない意図的な例外）。 */
+.illustration {
+  max-width: 100%; max-height: 720px;
+  width: 100%; height: auto;
+  object-fit: contain;
+  border-radius: var(--surface-radius);
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+.illustration--placeholder {
+  aspect-ratio: 16 / 10;
+  height: auto;
+  border: 2px dashed var(--border-glass-hover);
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+}
+
+/* ===== full_image: 全面画像 ===== */
+.slide.slide-layout-full_image { padding: 0; }
+.full-screen-image {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.full-screen-image--placeholder {
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-main));
+}
+/* タイトルを読ませるため、下側を背景色で覆う */
+.slide.slide-layout-full_image::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(var(--bg-main-rgb), 0) 40%, rgba(var(--bg-main-rgb), 0.88) 100%);
+  pointer-events: none;
+}
+.image-overlay-title {
+  position: absolute;
+  left: 100px; right: 100px; bottom: 80px;
+  z-index: 3;
+  font-family: var(--font-heading);
+  font-size: calc(3.2rem * var(--ts));
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.3;
+  text-shadow: 0 4px 24px rgba(var(--bg-main-rgb), 0.85);
+}
+
+/* 手動アップロード等で使う絶対配置アセット（slot-1〜3） */
+.asset-slot {
+  object-fit: contain;
+  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.45));
+}
+
+/* ===== image_gallery ===== */
+.gallery-grid {
+  display: grid; gap: calc(32px * var(--gap-scale));
+  flex: 1; align-items: stretch; min-height: 0;
+}
+.gallery-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.gallery-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.gallery-item {
+  margin: 0;
+  display: flex; flex-direction: column;
+  /* 図解が沈まないよう .illustration と同じく明るい地で固定する */
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--surface-radius);
+  padding: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.gallery-media {
+  flex: 1; width: 100%; height: 100%; min-height: 0;
+  object-fit: contain; border-radius: 10px;
+}
+.gallery-caption {
+  margin-top: 12px;
+  font-size: calc(1.05rem * var(--ts));
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ==========================================================================
+   ここから下にプロジェクト固有のスライドレイアウトを追記する
+   （動画ごとのカスタムCSSは composition.py がさらに後ろへ連結する）
+   ========================================================================== */

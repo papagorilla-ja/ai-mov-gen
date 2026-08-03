@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>新規プロジェクト</title>
+<meta content="プロジェクトの説明をここに記入" name="description"/>
+<!-- Stylesheet -->
+<link href="style.css" rel="stylesheet"/>
+<!-- FontAwesome はプレビュー用ダッシュボードのアイコンにしか使わないため、
+     app.js がプレビューモードのときだけ読み込む。
+     レンダリングを外部ネットワークに依存させないよう、ここでは読み込まない。 -->
+</head>
+<body>
+<!-- ==========================================================================
+       ルートコンポジション (#stage)
+
+       hyperframes は body 直下の先頭要素をルートコンポジションとして扱う。
+       ここを別の要素（旧実装ではダッシュボードのラッパー）で包むと
+       root_missing_composition_id となり、コンポジションとして認識されない。
+       #stage は必ず body 直下・先頭に置くこと。
+       ========================================================================== -->
+<!-- class と data-transition は動画作成時に composition.py が
+     スタイル設定から書き換える。ここにあるのはテンプレートを直接開いたときの既定値。
+       motif-*  背景モチーフ (grid/mesh/dots/waves/noise/plain)
+       decor-*  装飾スタイル (glass/flat/outline/solid)
+       type-*   タイポスケール (compact/normal/relaxed) -->
+<div class="motif-grid decor-glass type-normal" data-composition-id="training_video" data-duration="10" data-height="1080" data-start="0" data-transition="none" data-width="1920" id="stage">
+<!-- Background Decorations: 中身は空。描画内容は motif-* クラスが決める -->
+<div class="stage-bg-motif"></div>
+<div class="stage-bg-glow"></div>
+<!-- ==========================================================================
+       SLIDES VIEWPORT CONTENT
+       ここに .slide.clip 要素を1枚ずつ追加していく(narration.md の
+       ## Scene N と出現順を一致させること)
+       ========================================================================== -->
+<!-- Slide 1: Title (サンプル。内容を書き換えて使う) -->
+<div class="slide slide-layout-title clip" data-duration="10.00" data-start="0.00">
+<h1 class="clip" data-duration="9.50" data-start="0.50">プロジェクトタイトル</h1>
+<p class="clip" data-duration="8.50" data-start="1.00">サブタイトル</p>
+</div>
+<!-- 動画生成時、composition.py がスライドと <audio> タグを
+     実際のナレーション音声の尺に合わせてここに書き出す -->
+</div>
+<!-- ==========================================================================
+       プレビュー専用ダッシュボード
+
+       index.html?preview=1 で開いたときだけ表示される。
+       レンダリング時は display:none になり、映像には一切写り込まない。
+       ステージ (#stage) はこの中には入れず、JS が中央セルの上に重ねて表示する。
+       ========================================================================== -->
+<div id="preview-dashboard">
+<!-- Sidebar: Slide Navigator -->
+<div class="dashboard-sidebar">
+<div class="sidebar-header">
+<h1><i class="fa-solid fa-graduation-cap"></i> <span>AI-MovGen プレビュー</span></h1>
+<p>新規プロジェクト</p>
+</div>
+<div class="slide-list" id="dashboard-slide-list">
+<!-- Javascript dynamically fills slides checklist here -->
+</div>
+</div>
+<!-- Center Area: ステージの表示領域（枠を確保するだけの空セル） -->
+<div class="dashboard-preview"></div>
+<!-- ==========================================================================
+       Dashboard Control Bar
+       ========================================================================== -->
+<div class="dashboard-controls" id="dashboard-controls-panel">
+<div class="control-left">
+<button class="btn-control btn-play-pause" id="btn-play-pause" title="再生 / 一時停止">
+<i class="fa-solid fa-play" id="icon-play-pause"></i>
+</button>
+<div class="time-display" id="time-display">00:00 / 00:00</div>
+</div>
+<div class="scrub-timeline">
+<div class="progress-bar-outer" id="timeline-outer">
+<div class="progress-bar-fill" id="timeline-fill">
+<div class="progress-bar-handle"></div>
+</div>
+</div>
+</div>
+<div class="control-right">
+<select class="speed-select" id="speed-select">
+<option value="0.5">0.5x</option>
+<option selected="" value="1.0">1.0x (標準)</option>
+<option value="1.5">1.5x</option>
+<option value="2.0">2.0x</option>
+</select>
+</div>
+</div>
+</div>
+<!-- GSAP Core Library (Offline & Local execution support) -->
+<script src="gsap.min.js"></script>
+<!-- Chart.js Library -->
+<script src="chart.min.js"></script>
+<!-- Application Logic -->
+<script src="app.js"></script>
+</body>
+</html>
