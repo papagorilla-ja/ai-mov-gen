@@ -42,6 +42,43 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   exit 1
 fi
 
+# ─── ホストネイティブ実行用 venv の確認 ───────────────────
+# 以前は `source .venv-host/bin/activate` で venv を有効化していたが、activate には
+# venv 作成時の絶対パスが埋め込まれているため、プロジェクトを移動・リネームすると
+# 黙って機能しなくなる（存在しないディレクトリを PATH に足すだけでエラーは出ない）。
+# その結果 uvicorn がシステムの python で解決され、依存不足で TTS が起動しない事故が
+# 起きたため、venv の python を絶対パスで直接起動する方式に変更した。
+TTS_PY="$SCRIPT_DIR/qwen3-tts/.venv-host/bin/python"
+RENDERER_PY="$SCRIPT_DIR/mlx/.venv-host/bin/python"
+
+# venv の python と主要な依存モジュールが揃っているかを起動前に検証する。
+# 起動してからログを追わないと原因が分からない状態を避けるのが目的。
+#   $1: 表示名 / $2: venv の python パス / $3: venv があるディレクトリ / $4: 必須モジュール
+check_venv() {
+  local label="$1" py="$2" dir="$3" module="$4"
+
+  if [ ! -x "$py" ]; then
+    err "$label の venv が見つかりません: $py"
+    err "  次のコマンドで作成してください:"
+    err "    cd \"$dir\""
+    err "    uv venv .venv-host --python 3.12"
+    err "    uv pip install --python .venv-host/bin/python -r requirements.txt"
+    exit 1
+  fi
+
+  # 依存の代表として 1 モジュールだけ import する（torch は読まないので 1 秒未満）
+  if ! "$py" -c "import $module" 2>/dev/null; then
+    err "$label の venv に $module がインストールされていません: $py"
+    err "  次のコマンドで導入してください:"
+    err "    cd \"$dir\""
+    err "    uv pip install --python .venv-host/bin/python -r requirements.txt"
+    exit 1
+  fi
+}
+
+check_venv "TTS"      "$TTS_PY"      "$SCRIPT_DIR/qwen3-tts" soundfile
+check_venv "Renderer" "$RENDERER_PY" "$SCRIPT_DIR/mlx"       fastapi
+
 # ─── ホストネイティブ TTS (MPS) 起動 ─────────────────────
 if [ -f "$SCRIPT_DIR/data/tts_host.pid" ]; then
   kill "$(cat "$SCRIPT_DIR/data/tts_host.pid")" 2>/dev/null || true
@@ -50,7 +87,6 @@ fi
 
 log "ホストネイティブ TTS (MPS) を起動します..."
 cd "$SCRIPT_DIR/qwen3-tts"
-source .venv-host/bin/activate
 export MODEL_CACHE_DIR="$SCRIPT_DIR/data/model_cache"
 export HF_HOME="$SCRIPT_DIR/data/model_cache"
 export QWEN3_TTS_MODEL_ID="Qwen/Qwen3-TTS-12Hz-0.6B-Base"
@@ -65,10 +101,9 @@ export TTS_REPETITION_PENALTY=1.10  # 破綻時のコード列反復を抑える
 export TTS_BATCH_SIZE=4             # 遅くなる場合は 1 に戻す
 export TTS_CHUNK_GAP_SEC=0.28
 export TTS_MAX_RETRY=2
-nohup uvicorn server:app --host 127.0.0.1 --port 8100 \
+nohup "$TTS_PY" -m uvicorn server:app --host 127.0.0.1 --port 8100 \
   > "$SCRIPT_DIR/data/tts_host.log" 2>&1 &
 echo $! > "$SCRIPT_DIR/data/tts_host.pid"
-deactivate
 cd "$SCRIPT_DIR"
 
 # ─── ホストネイティブ Renderer (hyperframes --docker) 起動 ───
@@ -88,15 +123,13 @@ if ! command -v ffmpeg >/dev/null 2>&1 && [ ! -x /opt/homebrew/bin/ffmpeg ]; the
 fi
 
 cd "$SCRIPT_DIR/mlx"
-source .venv-host/bin/activate
 export PROJECTS_DIR_HOST="$SCRIPT_DIR/projects"
 export NVM_DIR="$HOME/.nvm"
 # Homebrew の ffmpeg を hyperframes から見えるようにする
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-nohup uvicorn renderer_server:app --host 127.0.0.1 --port 8200 \
+nohup "$RENDERER_PY" -m uvicorn renderer_server:app --host 127.0.0.1 --port 8200 \
   > "$SCRIPT_DIR/data/renderer_host.log" 2>&1 &
 echo $! > "$SCRIPT_DIR/data/renderer_host.pid"
-deactivate
 cd "$SCRIPT_DIR"
 
 # ─── 起動 ─────────────────────────────────────────────────
