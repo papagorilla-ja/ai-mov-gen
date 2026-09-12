@@ -9,7 +9,7 @@ import '@mdi/font/css/materialdesignicons.css'
 import App from './App.vue'
 import router from './router'
 
-// ─── Vuetify テーマ設定 ───────────────────────────────────
+// ─── Vuetify テーマ設定 (Cyber Studio / Neon Glass スタイル) ───
 const vuetify = createVuetify({
   components,
   directives,
@@ -17,23 +17,39 @@ const vuetify = createVuetify({
     defaultTheme: 'dark',
     themes: {
       dark: {
+        dark: true,
         colors: {
-          primary:    '#6366f1',   // インディゴ
-          secondary:  '#8b5cf6',   // バイオレット
-          accent:     '#22d3ee',   // シアン
-          background: '#0f0f1a',   // ダークネイビー
-          surface:    '#1a1a2e',
-          error:      '#ef4444',
-          warning:    '#f59e0b',
-          info:       '#3b82f6',
-          success:    '#10b981',
+          primary:    '#06b6d4',   // エレクトリック・シアン（メインアクション、ハイライト）
+          secondary:  '#a855f7',   // ネオン・パープル（クリエイティブ、AIアクセント）
+          accent:     '#6366f1',   // ネオン・インディゴ（補色、深度）
+          background: '#090a14',   // 超暗色ディープスペース背景
+          surface:    '#131628',   // カード・パネル用サーフェス
+          'surface-variant': '#1a1e36',
+          error:      '#f43f5e',   // ネオン・ローズレッド
+          warning:    '#fbbf24',   // アンバー
+          info:       '#38bdf8',   // ライトスカイ
+          success:    '#10b981',   // エメラルドグリーン
         },
       },
     },
   },
   defaults: {
-    VBtn: { variant: 'tonal' },
-    VCard: { rounded: 'lg' },
+    VBtn: {
+      rounded: 'lg',
+      elevation: 0,
+    },
+    VCard: {
+      rounded: 'xl',
+      elevation: 0,
+    },
+    VTextField: {
+      variant: 'outlined',
+      density: 'comfortable',
+    },
+    VSelect: {
+      variant: 'outlined',
+      density: 'comfortable',
+    },
   },
 })
 

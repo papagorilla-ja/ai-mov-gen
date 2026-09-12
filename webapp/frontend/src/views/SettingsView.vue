@@ -1,6 +1,14 @@
 <template>
-  <v-container class="pa-6" max-width="800">
-    <h1 class="text-h5 font-weight-bold mb-6">設定</h1>
+  <v-container class="pa-6" max-width="860">
+    <div class="d-flex align-center gap-3 mb-6">
+      <div class="pa-2 rounded-lg" style="background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.3);">
+        <v-icon size="26" color="#06b6d4">mdi-tune-vertical</v-icon>
+      </div>
+      <div>
+        <h1 class="text-h5 font-weight-black title-gradient">システム・環境設定</h1>
+        <p class="text-body-2 text-medium-emphasis">LLM・音声合成エンジン（Qwen3-TTS）・レンダラーのパラメータを設定します</p>
+      </div>
+    </div>
 
     <!-- LLM 設定 -->
     <v-card class="mb-4 glass-card">
