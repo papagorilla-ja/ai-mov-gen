@@ -1,0 +1,27 @@
+.venn-stage { min-height: calc(var(--canvas-height) * 0.56); }
+.venn-label { width: 23%; }
+.venn-label-title {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.venn-label-text {
+  font-size: var(--fs-sub); line-height: 1.5;
+  color: var(--text-secondary); margin: calc(4px * var(--gap-scale)) 0 0;
+}
+/* 重なりの部分が結論。ここだけ面で持ち上げて、視線が最後に落ちる場所にする。 */
+.venn-overlap-slot { width: 20%; }
+.venn-overlap {
+  padding: calc(16px * var(--gap-scale)) calc(14px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--bg-elevated-strong);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.5);
+  box-shadow: var(--shadow-strong);
+}
+.venn-overlap-title {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-sub); color: var(--color-accent); line-height: 1.3;
+}
+.venn-overlap-text {
+  font-size: var(--fs-micro); line-height: 1.45;
+  color: var(--text-primary); margin: calc(4px * var(--gap-scale)) 0 0;
+}

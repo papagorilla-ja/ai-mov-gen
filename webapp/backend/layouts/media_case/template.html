@@ -1,0 +1,22 @@
+{% set img = c['images'][0] if c['images'] else none %}
+<div class="case-card">
+  <div class="case-visual">
+    {% if img and img['src'] %}
+    <img class="clip case-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.2" data-anim="blur-in">
+    {% else %}
+    <div class="clip case-image case-image--placeholder" data-seq="head" data-seq-offset="-0.2" data-anim="fade"></div>
+    {% endif %}
+    {% if img and img['caption'] %}
+    <div class="clip case-badge" data-seq="head" data-seq-offset="0.5" data-anim="pop">{{ img['caption'] }}</div>
+    {% endif %}
+  </div>
+  <div class="case-body">
+    {% if c['eyebrow'] %}
+    <div class="clip case-eyebrow" data-seq="head" data-anim="slide-right">{{ c['eyebrow'] }}</div>
+    {% endif %}
+    <h1 class="clip case-title" data-seq="head" data-seq-offset="0.2" data-anim="slide-right">{{ c['title'] }}</h1>
+    {% if c['body'] %}
+    <p class="clip case-text" data-seq="head" data-seq-offset="0.45" data-anim="rise">{{ c['body'] }}</p>
+    {% endif %}
+  </div>
+</div>

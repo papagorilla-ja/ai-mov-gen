@@ -1,0 +1,25 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  {# 矢印には「その矢印が指す先のステップ」と同じスロット番号を与える。
+     わずかに先出し（data-seq-offset）することで、矢印が伸びてから
+     その先にステップが現れる、という繋がりになる。 #}
+  <div class="flow-row" data-count="{{ count }}">
+    {% for st in c['steps'] %}
+    {% if not loop.first %}
+    <svg class="clip flow-arrow" viewBox="0 0 48 24" data-seq="spread"
+         data-seq-index="{{ loop.index0 }}" data-seq-offset="-0.25" data-anim="draw-right">
+      <path class="dg-arrow" d="M3 12h38"/>
+      <path class="dg-arrow" d="M33 5l8 7-8 7"/>
+    </svg>
+    {% endif %}
+    <div class="clip flow-step" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      <div class="flow-step-mark">
+        {% if st['icon'] and icon(st['icon']) %}{{ icon(st['icon']) }}
+        {% else %}<span>{{ loop.index }}</span>{% endif %}
+      </div>
+      {% if st['label'] %}<div class="flow-step-label">{{ st['label'] }}</div>{% endif %}
+      {% if st['text'] %}<p class="flow-step-text">{{ st['text'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

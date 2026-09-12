@@ -1,0 +1,16 @@
+{# タイトルは出さない。主文そのものが見出しの役割を持つレイアウトなので、
+   両方出すと画面に大きな文字が 2 つ並んで焦点が割れる。 #}
+{% if c['eyebrow'] %}
+<div class="clip slide-eyebrow hero-eyebrow" data-seq="head" data-anim="slide-right">{{ c['eyebrow'] }}</div>
+{% endif %}
+<div class="slide-body-area hero-area" data-fit>
+  <p class="clip hero-lead" data-seq="head" data-seq-offset="0.25" data-anim="rise">
+    {{ c['lead'] or c['title'] }}
+  </p>
+  {% if c['body'] %}
+  <p class="clip hero-body" data-seq="head" data-seq-offset="0.6" data-anim="rise">{{ c['body'] }}</p>
+  {% endif %}
+  {% if c['note'] %}
+  <p class="clip hero-note" data-seq="tail" data-anim="fade">{{ c['note'] }}</p>
+  {% endif %}
+</div>

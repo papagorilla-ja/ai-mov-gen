@@ -1,0 +1,44 @@
+.rank-list {
+  display: flex; flex-direction: column;
+  gap: calc(18px * var(--gap-scale) * var(--gap-dens));
+  /* 行数が少ないときに中央の細い帯にならないよう、縦に散らして埋める。
+     行どうしは独立しているので、間を空けても意味は壊れない。 */
+  min-height: calc(var(--canvas-height) * 0.44);
+  justify-content: space-between;
+}
+.rank-row { display: flex; align-items: center; gap: calc(24px * var(--gap-scale)); }
+.rank-no {
+  flex: none;
+  width: calc(52px * var(--dens)); height: calc(52px * var(--dens));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-item);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-glass);
+}
+/* 1 位だけ塗る。順位は「一番」を伝えるための表現なので、そこだけ強くする。 */
+.rank-row.is-top .rank-no {
+  color: var(--on-accent); background: var(--color-accent); border-color: transparent;
+}
+.rank-main { flex: 1; min-width: 0; }
+.rank-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.rank-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary);
+}
+.rank-value {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-item); color: var(--color-accent);
+}
+.rank-value small { font-size: 0.6em; margin-left: 3px; font-weight: 700; }
+.rank-track {
+  height: calc(14px * var(--dens)); border-radius: 7px;
+  margin-top: calc(10px * var(--gap-scale));
+  background: rgba(var(--color-primary-rgb), 0.12);
+  overflow: hidden;
+}
+.rank-bar {
+  height: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+}

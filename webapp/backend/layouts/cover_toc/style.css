@@ -1,0 +1,29 @@
+.toc-subtitle {
+  font-size: var(--fs-body); color: var(--text-secondary);
+  margin: calc(-18px * var(--gap-scale)) 0 calc(26px * var(--gap-scale));
+}
+.toc-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: calc(14px * var(--gap-scale) * var(--gap-dens));
+}
+/* 章が多いときだけ 2 段に折る。縦に伸ばし続けると文字が小さくなりすぎる。 */
+.toc-list[data-count="5"], .toc-list[data-count="6"],
+.toc-list[data-count="7"], .toc-list[data-count="8"] {
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: calc(46px * var(--gap-scale));
+}
+.toc-item {
+  display: flex; align-items: baseline; gap: calc(22px * var(--gap-scale));
+  padding-bottom: calc(12px * var(--gap-scale));
+  border-bottom: 1px solid var(--border-glass);
+}
+.toc-num {
+  flex: none;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-item); color: var(--color-accent);
+}
+.toc-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.4;
+}

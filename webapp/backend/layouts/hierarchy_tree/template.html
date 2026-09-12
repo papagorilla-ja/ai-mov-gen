@@ -1,0 +1,20 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  {# 枝は CSS の擬似要素で引く。座標を計算しないので、
+     文字の長さが変わっても線がずれない。
+     data-seq-index には階層の深さを入れ、同じ段のノードを同時に出す。 #}
+  <ul class="tree-root">
+    {% for node in [tree_root] recursive %}
+    <li>
+      <div class="clip tree-node{{ ' is-root' if loop.depth0 == 0 else '' }}"
+           data-seq="spread" data-seq-index="{{ loop.depth0 }}" data-anim="pop">
+        {% if node['label'] %}<div class="tree-label">{{ node['label'] }}</div>{% endif %}
+        {% if node['text'] %}<p class="tree-text">{{ node['text'] }}</p>{% endif %}
+      </div>
+      {% if node['children'] %}
+      <ul>{{ loop(node['children']) }}</ul>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>

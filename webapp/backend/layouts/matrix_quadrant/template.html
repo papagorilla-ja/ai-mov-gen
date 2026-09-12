@@ -1,0 +1,28 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="axis-frame">
+    {# 縦軸の語は左側に、横軸の語は下側にまとめる。
+       上下・左右に散らすと「高い」がどちらの軸のものか分からなくなる。 #}
+    <div class="axis-y">
+      <span class="axis-end">{{ c['y_axis']['high'] }}</span>
+      {% if c['y_axis']['label'] %}<span class="axis-name">{{ c['y_axis']['label'] }}</span>{% endif %}
+      <span class="axis-end">{{ c['y_axis']['low'] }}</span>
+    </div>
+
+    <div class="axis-body matrix-grid" data-count="4">
+      {% for q in c['quadrants'] %}
+      <div class="clip matrix-cell q{{ loop.index }}"
+           data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+        {% if q['label'] %}<div class="matrix-cell-label">{{ q['label'] }}</div>{% endif %}
+        {% if q['text'] %}<p class="matrix-cell-text">{{ q['text'] }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="axis-x">
+      <span class="axis-end">{{ c['x_axis']['low'] }}</span>
+      {% if c['x_axis']['label'] %}<span class="axis-name">{{ c['x_axis']['label'] }}</span>{% endif %}
+      <span class="axis-end">{{ c['x_axis']['high'] }}</span>
+    </div>
+  </div>
+</div>

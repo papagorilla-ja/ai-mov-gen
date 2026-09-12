@@ -1,0 +1,14 @@
+{% include "_partials/head.html" %}
+{% if c['subtitle'] %}
+<p class="clip toc-subtitle" data-seq="head" data-seq-offset="0.3" data-anim="fade">{{ c['subtitle'] }}</p>
+{% endif %}
+<div class="slide-body-area" data-fit>
+  <ol class="toc-list" data-count="{{ count }}">
+    {% for ch in c['chapters'] %}
+    <li class="clip toc-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <span class="toc-num">{{ '%02d' % loop.index }}</span>
+      <span class="toc-label">{{ ch['label'] }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</div>

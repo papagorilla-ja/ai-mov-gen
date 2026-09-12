@@ -13,6 +13,7 @@ from core.config import settings
 from core.database import init_db
 
 from routers import projects, videos, scenes, speakers, styles, settings_router, scenario, assets
+from routers.layouts_router import router as layouts_router
 from routers.generation import router as generation, ws_router
 
 async def seed_data():
@@ -237,6 +238,7 @@ app.include_router(styles,          prefix="/api/v1")
 app.include_router(settings_router, prefix="/api/v1")
 app.include_router(scenario,        prefix="/api/v1")
 app.include_router(assets,          prefix="/api/v1")
+app.include_router(layouts_router, prefix="/api/v1")
 app.include_router(generation,        prefix="/api/v1")
 app.include_router(ws_router)
 
@@ -247,6 +249,13 @@ from pathlib import Path
 _static_dir = Path("/app/static")
 _static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+# テンプレート同梱の資産（同梱フォント）。
+# レイアウト選択ギャラリーのサムネイルは iframe 内で実物を描くため、
+# 書体まで動画と揃えるにはブラウザからフォントを取れる必要がある。
+_template_dir = Path("/app/templates/blank")
+if _template_dir.is_dir():
+    app.mount("/template-assets", StaticFiles(directory=str(_template_dir)), name="template-assets")
 
 
 

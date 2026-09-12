@@ -1,0 +1,42 @@
+.eq-area { justify-content: center; align-items: center; text-align: center; }
+.eq-result { display: flex; flex-direction: column; gap: calc(8px * var(--gap-scale)); }
+.eq-result-label {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(4.4rem * var(--ts));
+  line-height: 1.1;
+  background: linear-gradient(120deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.eq-result-note { font-size: var(--fs-body); color: var(--text-secondary); }
+.eq-equals {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(2.4rem * var(--ts));
+  color: var(--text-muted);
+  margin: calc(22px * var(--gap-scale)) 0;
+}
+.eq-terms {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: calc(18px * var(--gap-scale));
+}
+.eq-term {
+  display: flex; flex-direction: column; justify-content: center;
+  gap: calc(6px * var(--gap-scale));
+  min-width: calc(230px * var(--dens));
+  padding: calc(24px * var(--gap-scale) * var(--dens)) calc(28px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+.eq-term-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary);
+}
+.eq-term-note { font-size: var(--fs-sub); color: var(--text-secondary); }
+.eq-op {
+  align-self: center;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(2rem * var(--ts) * var(--dens));
+  color: var(--color-accent);
+}

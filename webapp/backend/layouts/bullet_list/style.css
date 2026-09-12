@@ -1,0 +1,53 @@
+.bullet-list {
+  display: flex; flex-direction: column;
+  gap: calc(22px * var(--gap-scale) * var(--gap-dens));
+}
+.bullet-item {
+  display: flex; align-items: center;
+  gap: calc(28px * var(--gap-scale));
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: var(--surface-radius);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(26px * var(--gap-scale) * var(--dens)) calc(34px * var(--gap-scale));
+  position: relative; overflow: hidden;
+}
+.bullet-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
+  opacity: var(--accent-bar-opacity);
+}
+.bullet-num {
+  flex-shrink: 0;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-body);
+  width:  calc(62px * var(--gap-scale) * var(--dens));
+  height: calc(62px * var(--gap-scale) * var(--dens));
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.35);
+}
+.bullet-content { min-width: 0; flex: 1; }
+/* 見出しだけ / 説明だけ / 両方、のいずれでも成立させる。
+   旧 bullet_points は片方しか持たないため、どちらか一方でも
+   行の高さが揃って見えるよう余白は持たせない。 */
+.bullet-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item);
+  line-height: 1.4; color: var(--text-primary); margin: 0;
+}
+.bullet-text {
+  font-size: var(--fs-item);
+  line-height: var(--lh-body); color: var(--text-primary); margin: 0;
+}
+/* 見出しと説明が両方あるときだけ、説明を一段落として弱める */
+.bullet-label + .bullet-text {
+  font-size: var(--fs-sub);
+  color: var(--text-secondary);
+  margin-top: calc(6px * var(--gap-scale));
+}
+/* 順序は番号バッジが担うため、このレイアウトでは icon を描かない
+   （アイコンを使うのは card_panel や list_icon_row 側）。 */

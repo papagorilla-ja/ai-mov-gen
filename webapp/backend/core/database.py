@@ -75,6 +75,9 @@ async def init_db():
             "ALTER TABLE style_templates ADD COLUMN decor_style TEXT NOT NULL DEFAULT 'glass'",
             "ALTER TABLE style_templates ADD COLUMN type_scale TEXT NOT NULL DEFAULT 'normal'",
             "ALTER TABLE style_templates ADD COLUMN transition TEXT NOT NULL DEFAULT 'none'",
+            # FIX-22: AI に使わせるレイアウトの幅。NULL は 'standard' 扱い
+            # （既存動画の振る舞いを変えないため、既定値は入れない）
+            "ALTER TABLE video_styles ADD COLUMN layout_breadth TEXT",
         ]:
             try:
                 await conn.execute(text(stmt))

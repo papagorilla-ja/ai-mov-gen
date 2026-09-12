@@ -1,0 +1,20 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="cstack">
+    <div class="clip cstack-row a" data-seq="spread" data-seq-index="0" data-anim="slide-right">
+      <div class="cstack-side">
+        {% if c['left']['title'] %}<span class="cstack-title">{{ c['left']['title'] }}</span>{% endif %}
+      </div>
+      <p class="cstack-text">{{ c['left']['text'] }}</p>
+    </div>
+    <div class="clip cstack-row b" data-seq="spread" data-seq-index="1" data-anim="slide-right">
+      <div class="cstack-side">
+        {% if c['right']['title'] %}<span class="cstack-title">{{ c['right']['title'] }}</span>{% endif %}
+      </div>
+      <p class="cstack-text">{{ c['right']['text'] }}</p>
+    </div>
+  </div>
+  {% if c['verdict'] %}
+  <div class="clip layout-verdict" data-seq="tail" data-anim="rise">{{ c['verdict'] }}</div>
+  {% endif %}
+</div>

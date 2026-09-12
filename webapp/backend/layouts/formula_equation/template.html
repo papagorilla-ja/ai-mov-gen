@@ -1,0 +1,22 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area eq-area" data-fit>
+  {# 結果を先に、内訳を後に。掛け算レイアウト（左から右へ計算する形）とは
+     視線の順序が逆で、「これは何で決まるのか」という問いの形になる。 #}
+  <div class="clip eq-result" data-seq="head" data-seq-offset="0.3" data-anim="rise">
+    <span class="eq-result-label">{{ c['result']['label'] }}</span>
+    {% if c['result']['note'] %}<span class="eq-result-note">{{ c['result']['note'] }}</span>{% endif %}
+  </div>
+  <div class="clip eq-equals" data-seq="head" data-seq-offset="0.55" data-anim="fade">＝</div>
+  <div class="eq-terms" data-count="{{ count }}">
+    {% for term in c['terms'] %}
+    {% if not loop.first %}
+    <div class="clip eq-op" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+         data-seq-offset="-0.2" data-anim="pop">{{ c['operator'] }}</div>
+    {% endif %}
+    <div class="clip eq-term" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      <span class="eq-term-label">{{ term['label'] }}</span>
+      {% if term['note'] %}<span class="eq-term-note">{{ term['note'] }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

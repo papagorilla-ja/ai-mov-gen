@@ -1,0 +1,21 @@
+{% set img = c['images'][0] if c['images'] else none %}
+<div class="two-col-container grid-2col{{ ' reverse' if c['image_position'] == 'left' else '' }}">
+  <div class="col-left">
+    {% include "_partials/head.html" %}
+    {% if c['body'] %}
+    <div class="clip body-card" data-seq="head" data-seq-offset="0.4" data-anim="rise">
+      <p class="body-text">{{ c['body'] }}</p>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-right">
+    {% if img and img['src'] %}
+    <img class="clip illustration" src="{{ img['src'] }}" data-seq="head" data-seq-offset="0.55" data-anim="blur-in">
+    {% else %}
+    <div class="clip illustration illustration--placeholder" data-seq="head" data-seq-offset="0.55" data-anim="fade"></div>
+    {% endif %}
+    {% if img and img['caption'] %}
+    <p class="clip media-caption" data-seq="tail" data-anim="fade">{{ img['caption'] }}</p>
+    {% endif %}
+  </div>
+</div>

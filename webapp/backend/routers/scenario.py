@@ -16,48 +16,60 @@ from models.scene import Scene
 from models.scene_asset import SceneAsset
 from models.video import Video
 from models.project import Project
+from models.video_style import VideoStyle
 from schemas.scenario import (
     ScenarioRead,
     FromTextRequest,
     ChatRequest,
     FinalizeRequest,
-    ScenarioProposal,
-    ScenarioSceneItem,
     ScenarioOutlineItem,
-    ScenarioOutline,
     PptxImportResult,
 )
 from services.llm_service import (
-    extract_json_proposal,
     extract_outline_proposal,
     generate_slide_narration,
     split_text_to_scenes,
     send_chat_message
 )
 from services.pptx_import import parse_pptx, SlideInfo
+from layouts import _prompts, _types
+from layouts import _registry as layouts
+from layouts._types import CONTENT_TYPES
 
 router = APIRouter(tags=["scenario"])
 
-SUPPORTED_LAYOUTS = {
-    "text_only", "text_left_image_right", "full_image",
-    "comparison", "bullet_list", "chat_dialog", "section_header",
-    "card_panel", "table", "graph_chart", "image_gallery"
-}
-
 # PPTX 取り込み後のナレーション一括生成ジョブの進捗ストア（プロセス内メモリ、bulk_content_job_store と同じ方式）
 pptx_narration_job_store: dict[str, dict] = {}
-# 旧 layout_hint 値からの後方互換
-LEGACY_LAYOUT_ALIASES = {"text_image": "text_left_image_right", "list": "bullet_list"}
+
 
 def _normalize_layout(raw: str) -> str:
-    v = (raw or "text_only").strip()
-    v = LEGACY_LAYOUT_ALIASES.get(v, v)
-    return v if v in SUPPORTED_LAYOUTS else "text_only"
+    """見せ方の名前を実在するレイアウトに丸める。
 
-SYSTEM_PROMPT_C = """あなたは動画の構成を一緒に考えるアシスタントです。
+    許可リストはここに持たない。layouts/ にディレクトリを置いた時点で
+    使えるようになる（一覧を二重に持つと必ず片方が腐る）。
+    """
+    return layouts.normalize_layout_id(raw)
+
+
+def _layout_for_outline(item, breadth: str | None = None) -> str:
+    """アウトライン 1 件から、開始時点の見せ方を決める。
+
+    段階 1 で決まるのは「型」なので、その型の代表レイアウトを置く。
+    実際の見せ方は、シーン内容を生成したとき（段階 2・3）に
+    件数を見てから確定する。
+    """
+    type_id = (item.content_type or "").strip()
+    if type_id not in CONTENT_TYPES:
+        # 古い形式（見せ方の名前が直接来る）からの後方互換
+        type_id = layouts.type_of(item.layout_type) if item.layout_type else "statement"
+    type_id = layouts.coerce_type(type_id, breadth)
+    return _prompts.default_layout_for(type_id)
+
+SYSTEM_PROMPT_C_TEMPLATE = """あなたは動画の構成を一緒に考えるアシスタントです。
 ユーザーと対話しながら「どんな動画にするか」を整理し、動画の“章立て（アウトライン）”を作り上げます。
 この段階ではナレーション本文やスライドの詳細は作りません。各シーンの「タイトル」と
-「そのシーンで扱う内容のあらすじ（1〜2文）」だけを決めます。詳細な作り込みは後工程（シーン編集）で行います。
+「そのシーンで扱う内容のあらすじ（1〜2文）」、そして「情報の型」だけを決めます。
+詳細な作り込みは後工程（シーン編集）で行います。
 
 【対話の進め方】
 - まずテーマ・対象視聴者・トーン・想定の長さなどを踏まえ、章立ての方針を自然文で提案・相談してください。
@@ -69,27 +81,40 @@ SYSTEM_PROMPT_C = """あなたは動画の構成を一緒に考えるアシス�
   10分の動画なら 14〜20 シーン程度を作ってください（内容が濃いテーマなら多めに分割し、深く掘り下げる）。
 - 1つのシーンに詰め込みすぎず、話題ごとに分けてください。
 
+【情報の型（content_type）】
+そのシーンの内容が「どういう構造の情報か」を次から選んでください。
+見た目（グラフか箇条書きか等）ではなく、情報の構造で選ぶことが重要です。
+
+{type_menu}
+
+- 同じ型が延々と続かないよう使い分けてください。ただし内容に合わない型を無理に混ぜないでください。
+- 具体的な見せ方（何カラムで並べるか等）はここでは決めません。後工程が内容の分量を見て決めます。
+
 【出力する JSON（アウトライン。これだけを ```json ブロックで囲む）】
 ```json
-{
+{{
   "scenes": [
-    {
+    {{
       "index": 1,
       "title": "シーンのタイトル",
       "summary": "このシーンで扱う内容のあらすじを1〜2文で。",
-      "layout_type": "section_header"
-    }
+      "content_type": "cover"
+    }}
   ]
-}
+}}
 ```
-- layout_type は text_only / section_header / bullet_list / text_left_image_right / full_image /
-  comparison / chat_dialog / card_panel / table / graph_chart から、そのシーンに合いそうなものを1つ“提案”してください
-  （後でシーン編集側で変更できます。迷ったら text_only）。
 - narration_text やスライドの詳細（bullet_points 等）はここでは絶対に出力しないでください（後工程で作ります）。
 - 既に「現在のシーン構成」が提示されている場合は、それを土台に、ユーザーの指示に沿って
   追加・分割・統合・修正した“更新後の全シーンのアウトライン”を返してください（全シーンを省略せず列挙）。
 
 JSON ブロックを返信に含めると、フロントに「この構成でシーンを作成」ボタンが表示されます。"""
+
+
+def system_prompt_c(breadth: str | None = None) -> str:
+    """チャットのシステムプロンプト。使える型は動画の「レイアウトの幅」設定で絞る。"""
+    return SYSTEM_PROMPT_C_TEMPLATE.format(
+        type_menu=_prompts.type_menu(layouts.allowed_types(breadth))
+    )
 
 
 # ─── ヘルパー関数 ─────────────────────────────────────────────
@@ -180,44 +205,22 @@ def _blocks_to_scenes(blocks: list[str]) -> list[dict]:
     return scenes if scenes else [{"index": 1, "title": "シーン 1", "narration": "\n".join(blocks)}]
 
 
-def map_scene_item(scenario_id: str, item: ScenarioSceneItem, index: int | None = None) -> Scene:
-    layout_type = _normalize_layout(item.layout_type)
-    content = dict(item.slide_content_json or {})
-    content.setdefault("title", item.title or "")
+async def get_layout_breadth(video_id: str, db: AsyncSession) -> str | None:
+    """動画の「レイアウトの幅」設定を引く。
 
-    # composition.py が KeyError を起こさないようレイアウト別に必須キーを整える
-    if layout_type == "bullet_list":
-        bp = content.get("bullet_points", [])
-        if isinstance(bp, str):
-            bp = [x.strip() for x in bp.split("\n") if x.strip()]
-        content["bullet_points"] = bp if isinstance(bp, list) else []
-    elif layout_type == "comparison":
-        content.setdefault("left_text", "")
-        content.setdefault("right_text", "")
-    elif layout_type == "chat_dialog":
-        lines = content.get("lines", [])
-        content["lines"] = [
-            {"speaker": (l.get("speaker") or "A"), "text": (l.get("text") or "")}
-            for l in lines if isinstance(l, dict)
-        ] if isinstance(lines, list) else []
-    else:
-        content.setdefault("body", "")
+    未設定（NULL）なら None を返し、レジストリ側の既定（standard）に委ねる。
+    ここで既定値を書かないこと。既定を持つ場所は layouts/_registry.py だけにする。
+    """
+    stmt = select(VideoStyle.layout_breadth).where(VideoStyle.video_id == video_id)
+    return (await db.execute(stmt)).scalars().first()
 
-    idx = index if index is not None else item.index
-    return Scene(
-        scenario_id=scenario_id,
-        index=idx,
-        title=(item.title or content.get("title") or f"シーン {idx}"),
-        layout_type=layout_type,
-        slide_content_json=json.dumps(content, ensure_ascii=False),
-        narration_text=item.narration_text or "",
-    )
 
-def map_outline_item(scenario_id: str, item: ScenarioOutlineItem, index: int, existing: Scene | None = None) -> Scene:
+def map_outline_item(scenario_id: str, item: ScenarioOutlineItem, index: int,
+                     existing: Scene | None = None, breadth: str | None = None) -> Scene:
     """アウトライン 1 件からスケルトンシーンを作る。
     existing に深堀り済みシーンが渡された場合は、その成果（ナレーション・カスタムHTML等）を保持し、
     タイトルとあらすじだけ更新する（確定を繰り返しても作り込みが消えないように）。"""
-    layout_type = _normalize_layout(item.layout_type)
+    layout_type = _layout_for_outline(item, breadth)
     summary = item.summary or ""
 
     has_work = bool(existing and ((existing.narration_text or "").strip() or (existing.custom_html or "").strip()))
@@ -228,17 +231,12 @@ def map_outline_item(scenario_id: str, item: ScenarioOutlineItem, index: int, ex
         existing.outline_summary = summary or existing.outline_summary
         return existing
 
-    # スケルトン（新規、または未着手の既存）: アウトライン内容で初期化
-    content = {"title": item.title or "", "summary": summary}
-    if layout_type == "section_header":
-        content["subtitle"] = summary          # section_header は subtitle が正
-    elif layout_type in ("text_only", "text_left_image_right", "full_image"):
-        content["body"] = summary
-    else:
-        # bullet_list / comparison / card_panel / table / graph_chart:
-        # 固有コンテンツは「AI でシーン内容を生成」で埋める。それまでは summary が
-        # フォールバック表示されるので、空スライドにはならない。
-        content["body"] = ""
+    # スケルトン（新規、または未着手の既存）: あらすじを型に合う場所へ流し込む。
+    # 固有の内容は「AI でシーン内容を生成」で埋まる。それまでの間も
+    # あらすじが表示されるので、真っ白なスライドにはならない。
+    type_id = layouts.type_of(layout_type)
+    content = _types.normalize(type_id, {"title": item.title or ""})
+    _types.fill_from_summary(type_id, content, summary)
 
     scene = existing or Scene(scenario_id=scenario_id, index=index)
     scene.index = index
@@ -306,24 +304,29 @@ def _slide_table_summary(slide: SlideInfo) -> str:
 
 
 def _slide_to_content(slide: SlideInfo) -> dict:
-    """SlideInfo をレイアウト別の slide_content_json に変換する（1スライド=1シーンの新方式）。"""
-    content: dict = {"title": slide.title or f"スライド {slide.index}"}
-    content["image_position"] = slide.image_position
+    """SlideInfo を slide_content_json に変換する（1スライド=1シーン）。
 
-    if slide.layout_type == "bullet_list":
-        content["bullet_points"] = slide.bullets[:6] if slide.bullets else ([slide.body_text] if slide.body_text else [])
-    elif slide.layout_type == "table" and slide.table:
-        content["headers"] = slide.table.get("headers", [])
-        content["rows"] = slide.table.get("rows", [])
-    elif slide.layout_type == "section_header":
-        content["subtitle"] = slide.body_text or (slide.bullets[0] if slide.bullets else "")
-    elif slide.layout_type in ("text_only", "text_left_image_right", "full_image", "image_gallery"):
-        body = slide.body_text or "\n".join(slide.bullets[:4])
-        content["body"] = body
-    else:
-        content["body"] = slide.body_text or ""
+    PPTX から取れるのは「見出し・箇条書き・本文・表・画像」だけなので、
+    ここでは素直にその形で詰め、型のスキーマへの整形は
+    _types.normalize() に任せる（旧キーもそこで吸収される）。
+    """
+    raw: dict = {
+        "title": slide.title or f"スライド {slide.index}",
+        "image_position": slide.image_position,
+    }
+    if slide.bullets:
+        raw["bullet_points"] = slide.bullets[:6]
+    if slide.table:
+        raw["headers"] = slide.table.get("headers", [])
+        raw["rows"] = slide.table.get("rows", [])
+    if slide.body_text:
+        raw["body"] = slide.body_text
+        raw["subtitle"] = slide.body_text
+    elif slide.bullets:
+        raw["subtitle"] = slide.bullets[0]
 
-    return content
+    layout_type = _normalize_layout(slide.layout_type)
+    return _types.normalize(layouts.type_of(layout_type), raw)
 
 
 def _save_slide_visuals(slide: SlideInfo, scene_id: str, scene_index: int, video_dir: Path) -> list[SceneAsset]:
@@ -504,14 +507,18 @@ async def from_text(
     if not video:
         raise HTTPException(status_code=404, detail="ビデオが見つかりません")
 
-    proposal = None
+    # Route B もチャットと同じ 2 段階にする。ここで作るのは章立てだけで、
+    # スライドの中身とナレーションは後続の一括生成（generate-content-all）が
+    # 型ごとの専用プロンプトで深掘りする。
+    breadth = await get_layout_breadth(video_id, db)
+    outline = None
     try:
-        llm_response = await split_text_to_scenes(payload.text)
-        proposal = extract_json_proposal(llm_response)
-        if proposal:
-            print(f"[from_text] LLM 分割成功: {len(proposal.scenes)} シーン")
+        llm_response = await split_text_to_scenes(payload.text, breadth)
+        outline = extract_outline_proposal(llm_response)
+        if outline:
+            print(f"[from_text] LLM 分割成功: {len(outline.scenes)} シーン")
         else:
-            print(f"[from_text] LLM レスポンスのパースに失敗、ルールベース分割にフォールバック")
+            print("[from_text] LLM レスポンスのパースに失敗、ルールベース分割にフォールバック")
             print(f"[from_text] LLM raw response (先頭500文字): {llm_response[:500]}")
     except Exception as e:
         print(f"[from_text] LLM 呼び出し失敗、ルールベース分割にフォールバック: {e}")
@@ -529,10 +536,9 @@ async def from_text(
     await db.flush()
 
     # シーンの展開: LLM 提案があればそれを使用、なければルールベース分割
-    if proposal and proposal.scenes:
-        for i, item in enumerate(proposal.scenes, start=1):
-            scene = map_scene_item(scenario.id, item, index=i)
-            db.add(scene)
+    if outline and outline.scenes:
+        for i, item in enumerate(outline.scenes, start=1):
+            db.add(map_outline_item(scenario.id, item, index=i, breadth=breadth))
     else:
         for sd in _rule_based_split(payload.text):
             scene = Scene(
@@ -576,7 +582,8 @@ async def chat(
         
     messages = json.loads(scenario.chat_messages or "[]")
     if not messages:
-        messages.append({"role": "system", "content": SYSTEM_PROMPT_C})
+        breadth = await get_layout_breadth(video_id, db)
+        messages.append({"role": "system", "content": system_prompt_c(breadth)})
 
     # 現在のシーン構成を LLM に最新状態として渡す（確定後の修正フローに対応）
     stmt_scenes = select(Scene).where(Scene.scenario_id == scenario.id).order_by(Scene.index)
@@ -629,10 +636,11 @@ async def finalize_scenario(
     existing_scenes = (await db.execute(stmt_scenes)).scalars().all()
     by_index = {s.index: s for s in existing_scenes}
 
+    breadth = await get_layout_breadth(video_id, db)
     new_count = len(payload.scenes)
     for i, item in enumerate(payload.scenes, start=1):
         existing = by_index.get(i)
-        scene = map_outline_item(scenario.id, item, index=i, existing=existing)
+        scene = map_outline_item(scenario.id, item, index=i, existing=existing, breadth=breadth)
         if existing is None:
             db.add(scene)
     # アウトラインより多い余剰シーンは削除

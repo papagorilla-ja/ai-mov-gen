@@ -1,0 +1,45 @@
+.ba-row {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: stretch; gap: calc(26px * var(--gap-scale));
+  min-height: calc(var(--canvas-height) * 0.38);
+}
+.ba-card {
+  display: flex; flex-direction: column;
+  gap: calc(12px * var(--gap-scale));
+  padding: calc(34px * var(--gap-scale) * var(--dens)) calc(36px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+/* 変化前は沈ませ、変化後は持ち上げる。色ではなく明度差で
+   「こちらが良くなった方」を示す（配色を変えても関係が壊れない）。 */
+.ba-card.before { opacity: 0.72; }
+.ba-card.after {
+  background: rgba(var(--color-primary-rgb), 0.14);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.42);
+  box-shadow: var(--shadow-strong);
+}
+.ba-tag {
+  align-self: flex-start;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-micro); letter-spacing: 2px;
+  padding: 4px 12px; border-radius: 999px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+}
+.ba-card.after .ba-tag {
+  color: var(--on-accent); background: var(--color-accent); border-color: transparent;
+}
+.ba-title {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.35;
+}
+.ba-text {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0;
+}
+.ba-arrow {
+  align-self: center; flex: none;
+  width: calc(78px * var(--dens)); height: calc(36px * var(--dens));
+}

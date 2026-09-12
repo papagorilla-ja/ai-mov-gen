@@ -14,29 +14,16 @@ class ScenarioRead(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-class ScenarioSceneItem(BaseModel):
-    """LLM が生成するシーン 1 件の構造（新スキーマ・composition.py と直結）。
-    LLM 出力の揺れに強いよう index/title/narration_text にもデフォルトを持たせる。"""
-    index: int = Field(default=1)
-    title: str = Field(default="")
-    # composition.py が解釈する値: text_only / section_header / bullet_list /
-    #   text_left_image_right / full_image / comparison / chat_dialog / card_panel / table / graph_chart
-    layout_type: str = Field(default="text_only")
-    # レイアウト別の中身: {bullet_points:[...]} / {left_text,right_text} / {lines:[{speaker,text}]} /
-    #   {cards:[{title,text}]} / {headers:[...],rows:[[...]]} / {chart:{type,labels,values,unit}} / {body:"..."}
-    slide_content_json: dict = Field(default_factory=dict)
-    narration_text: str = Field(default="")
-
-class ScenarioProposal(BaseModel):
-    """LLM レスポンスのパース結果 (Route A/B 用)"""
-    scenes: list[ScenarioSceneItem]
-
 class ScenarioOutlineItem(BaseModel):
     """チャットのアウトライン段階での 1 シーン（軽量）。LLM 出力の揺れに強いよう全項目にデフォルトを持たせる。"""
     index: int = Field(default=1)
     title: str = Field(default="")
     summary: str = Field(default="")          # このシーンで扱う内容のあらすじ（1〜2文）
-    layout_type: str = Field(default="text_only")  # レイアウトの「提案」。確定後シーン側で変更可
+    # 段階 1 で決めるのは「情報の型」（14 択）。具体的な見せ方は
+    # シーン内容の生成時（段階 2）に、実際の件数を見てから決める。
+    content_type: str = Field(default="")
+    # 後方互換。古いフロントや保存済みデータは見せ方の名前を直接送ってくる。
+    layout_type: str = Field(default="")
 
 class ScenarioOutline(BaseModel):
     """チャットのアウトライン LLM レスポンスのパース結果"""

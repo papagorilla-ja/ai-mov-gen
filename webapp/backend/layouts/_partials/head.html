@@ -1,0 +1,12 @@
+{# 全レイアウト共通の見出しブロック（アイブロウ＋タイトル）。
+
+   アイブロウは内容に紐づく日本語のときだけ出す。
+   以前は "Key Points" / "Chart" / "Scene 03" という英語を
+   レイアウトごとに固定で出していたが、内容と無関係な文字は
+   読み取りコストを増やすだけなので、空なら描かない。 #}
+{% if c.eyebrow %}
+<div class="clip slide-eyebrow" data-seq="head" data-anim="slide-right">{{ c.eyebrow }}</div>
+{% endif %}
+{% if c.title %}
+<h1 class="clip slide-title" data-seq="head" data-seq-offset="0.15" data-anim="slide-right">{{ c.title }}</h1>
+{% endif %}

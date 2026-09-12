@@ -1,0 +1,14 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="bullet-list" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <div class="clip bullet-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <div class="bullet-num">{{ loop.index }}</div>
+      <div class="bullet-content">
+        {% if it['label'] %}<p class="bullet-label">{{ it['label'] }}</p>{% endif %}
+        {% if it['text'] %}<p class="bullet-text">{{ it['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,20 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage fixed-ar incl-stage" data-count="{{ count }}" style="--dg-ar: 1 / 1">
+    {# 同心円は入れ子ではなく、中心を揃えた重ね置きにする。
+       入れ子にすると内側の円の大きさが外側の余白に依存してしまい、
+       件数が変わるたびに比率が崩れる。 #}
+    {% for ring in rings %}
+    <div class="clip incl-ring{{ ' is-inner' if ring['innermost'] else '' }}"
+         style="width: {{ ring['diameter'] }}%; height: {{ ring['diameter'] }}%; --depth: {{ loop.index0 }}"
+         data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="expand-circle"></div>
+    {% endfor %}
+    {% for ring in rings %}
+    <div class="clip incl-label" style="top: {{ ring['label_top'] }}%"
+         data-seq="spread" data-seq-index="{{ loop.index0 }}" data-seq-offset="0.15" data-anim="fade">
+      <div class="incl-name">{{ ring['label'] }}</div>
+      {% if ring['text'] %}<div class="incl-note">{{ ring['text'] }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

@@ -49,6 +49,8 @@ class VideoStyleRead(BaseModel):
     decor_style: str | None = None
     type_scale: str | None = None
     transition: str | None = None
+    # FIX-22: AI に使わせるレイアウトの幅（minimal / standard / rich）
+    layout_breadth: str | None = None
     style_prompt: str | None = None
     custom_css: str | None = None
     default_speaker_id: str | None = None
@@ -81,6 +83,8 @@ class VideoStyleUpdate(BaseModel):
     decor_style: str | None = None
     type_scale: str | None = None
     transition: str | None = None
+    # FIX-22: AI に使わせるレイアウトの幅（minimal / standard / rich）
+    layout_breadth: str | None = None
     style_prompt: str | None = None
     custom_css: str | None = None
     default_speaker_id: str | None = None

@@ -1,0 +1,27 @@
+.dialog-container {
+  display: flex; flex-direction: column; height: 100%;
+  justify-content: center;
+  gap: calc(24px * var(--gap-scale) * var(--gap-dens));
+}
+.dialog-line { display: flex; max-width: 78%; }
+.dialog-line.speaker-a { align-self: flex-start; }
+.dialog-line.speaker-b { align-self: flex-end; }
+.dialog-line .bubble {
+  padding: calc(22px * var(--gap-scale) * var(--dens)) calc(28px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+/* 話者ごとに左右と色を変える。誰が喋っているかを音声と照合できるようにする。 */
+.dialog-line.speaker-a .bubble {
+  border-bottom-left-radius: 4px;
+  border-left: 3px solid var(--color-secondary);
+}
+.dialog-line.speaker-b .bubble {
+  border-bottom-right-radius: 4px;
+  border-right: 3px solid var(--color-accent);
+}

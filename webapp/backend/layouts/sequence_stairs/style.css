@@ -1,0 +1,39 @@
+.stairs {
+  flex: 1; min-height: calc(var(--canvas-height) * 0.48);
+  display: flex; align-items: flex-end;
+  gap: calc(10px * var(--gap-scale));
+}
+.stair-step {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; justify-content: flex-start;
+  border-radius: var(--surface-radius) var(--surface-radius) 0 0;
+  background: linear-gradient(180deg,
+              rgba(var(--color-primary-rgb), 0.30),
+              rgba(var(--color-primary-rgb), 0.08));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
+  border-bottom: none;
+  padding: calc(22px * var(--gap-scale) * var(--dens)) calc(20px * var(--gap-scale));
+  /* 段は下から伸びる。grow-bar のアニメーションと原点を合わせる。 */
+  transform-origin: center bottom;
+}
+/* 最上段だけアクセント色にして「到達点」を示す */
+.stair-step:last-child {
+  background: linear-gradient(180deg,
+              rgba(var(--color-accent-rgb), 0.34),
+              rgba(var(--color-accent-rgb), 0.10));
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+}
+.stair-cap { text-align: center; }
+.stair-num {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-sub); color: var(--color-accent);
+  margin-bottom: calc(6px * var(--gap-scale));
+}
+.stair-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.stair-text {
+  font-size: var(--fs-sub); line-height: 1.5;
+  color: var(--text-secondary); margin: calc(6px * var(--gap-scale)) 0 0;
+}

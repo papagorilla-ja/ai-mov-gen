@@ -1,0 +1,34 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="axis-frame">
+    <div class="axis-y">
+      <span class="axis-end">{{ c['y_axis']['high'] }}</span>
+      {% if c['y_axis']['label'] %}<span class="axis-name">{{ c['y_axis']['label'] }}</span>{% endif %}
+      <span class="axis-end">{{ c['y_axis']['low'] }}</span>
+    </div>
+
+    <div class="axis-body plot-area">
+      {# 四象限の見出しは薄く敷くだけ。主役は打たれた点なので、
+         区分名が点より目立つと読み違える。 #}
+      {% for q in c['quadrants'] %}
+      <div class="plot-quad q{{ loop.index }}">{{ q['label'] }}</div>
+      {% endfor %}
+      <div class="plot-cross-v"></div>
+      <div class="plot-cross-h"></div>
+
+      {% for p in points %}
+      <div class="plot-point" style="left: {{ p['left'] }}%; top: {{ p['top'] }}%">
+        <span class="clip plot-dot" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop"></span>
+        <span class="clip plot-name" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+              data-seq-offset="0.15" data-anim="fade">{{ p['label'] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="axis-x">
+      <span class="axis-end">{{ c['x_axis']['low'] }}</span>
+      {% if c['x_axis']['label'] %}<span class="axis-name">{{ c['x_axis']['label'] }}</span>{% endif %}
+      <span class="axis-end">{{ c['x_axis']['high'] }}</span>
+    </div>
+  </div>
+</div>

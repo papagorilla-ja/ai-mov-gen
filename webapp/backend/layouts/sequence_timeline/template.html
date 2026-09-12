@@ -1,0 +1,15 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="timeline" data-count="{{ count }}">
+    {# 横に貫く線は 1 本だけ引き、その上に点を等間隔で置く。
+       線を区間ごとに分けると、点と点の間に隙間が出て「途切れた年表」に見える。 #}
+    <div class="clip timeline-rail" data-seq="head" data-seq-offset="0.35" data-anim="scale-x"></div>
+    {% for st in c['steps'] %}
+    <div class="clip timeline-point" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+      <div class="timeline-when">{{ st['label'] }}</div>
+      <div class="timeline-dot"></div>
+      <p class="timeline-what">{{ st['text'] }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,32 @@
+.qa-list {
+  display: flex; flex-direction: column;
+  gap: calc(24px * var(--gap-scale) * var(--gap-dens));
+}
+.qa-block {
+  padding: calc(26px * var(--gap-scale) * var(--dens)) calc(32px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+.qa-line { display: flex; align-items: flex-start; gap: calc(20px * var(--gap-scale)); }
+.qa-line p { margin: 0; line-height: var(--lh-body); }
+.qa-q p { font-family: var(--font-heading); font-weight: 700; font-size: var(--fs-item); color: var(--text-primary); }
+.qa-a p { font-size: var(--fs-body); color: var(--text-secondary); }
+/* 質問と回答の間に区切り線を引く。Q と A の記号だけだと、
+   文章が長いときにどこで切り替わったか分かりにくい。 */
+.qa-a {
+  margin-top: calc(16px * var(--gap-scale));
+  padding-top: calc(16px * var(--gap-scale));
+  border-top: 1px solid var(--border-glass);
+}
+.qa-mark {
+  flex: none;
+  width: calc(38px * var(--dens)); height: calc(38px * var(--dens));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-sub);
+}
+.qa-mark.q { color: var(--on-primary); background: var(--color-primary); }
+.qa-mark.a { color: var(--color-accent); background: rgba(var(--color-accent-rgb), 0.16);
+             border: 1px solid rgba(var(--color-accent-rgb), 0.45); }

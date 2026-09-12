@@ -1,0 +1,36 @@
+.grid-2col {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: calc(60px * var(--gap-scale));
+  align-items: center; height: 100%;
+}
+.two-col-container .col-left,
+.two-col-container .col-right {
+  min-width: 0;
+  display: flex; flex-direction: column; justify-content: center;
+}
+/* 画像を左に置きたいときは並び順だけ入れ替える（DOM 順は変えない） */
+.two-col-container.reverse .col-left { order: 2; }
+.two-col-container.reverse .col-right { order: 1; }
+
+/* PPTX 由来の図解は白背景・濃色文字のことが多い。
+   囲みは常に明るい地にして、図解そのものが沈まないようにする
+   （ここだけはテーマに追従させない意図的な例外）。 */
+.illustration {
+  max-width: 100%; max-height: 720px;
+  width: 100%; height: auto;
+  object-fit: contain;
+  border-radius: var(--surface-radius);
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+.illustration--placeholder {
+  aspect-ratio: 16 / 10; height: auto;
+  border: 2px dashed var(--border-glass-hover);
+  background: var(--surface-bg);
+}
+.media-caption {
+  margin: calc(14px * var(--gap-scale)) 0 0;
+  font-size: var(--fs-sub); color: var(--text-secondary); text-align: center;
+}

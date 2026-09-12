@@ -1,0 +1,43 @@
+/* 主文。本文より一段大きく出して、視線の入り口を作る。 */
+.statement-lead {
+  font-family: var(--font-heading);
+  font-size: var(--fs-lead);
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--text-primary);
+  margin: 0 0 calc(26px * var(--gap-scale));
+  max-width: 1500px;
+}
+
+.body-card {
+  position: relative;
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-left: 5px solid var(--color-primary);
+  border-radius: 0 var(--surface-radius) var(--surface-radius) 0;
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(44px * var(--gap-scale)) calc(52px * var(--gap-scale));
+  max-width: 1500px;
+}
+.body-card .body-text {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  white-space: pre-line;
+  margin: 0;
+}
+.body-card::after {
+  content: ''; position: absolute; left: 44px; top: -18px;
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-radius: 10px; transform: rotate(45deg);
+  opacity: var(--accent-bar-opacity);
+}
+
+/* 出典や前提。本文より弱く置く。 */
+.statement-note {
+  margin: calc(22px * var(--gap-scale)) 0 0;
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+}

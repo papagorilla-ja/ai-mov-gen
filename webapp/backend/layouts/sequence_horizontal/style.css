@@ -1,0 +1,47 @@
+.flow-row {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: calc(10px * var(--gap-scale));
+  min-height: calc(var(--canvas-height) * 0.40);
+}
+.flow-step {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  gap: calc(14px * var(--gap-scale));
+  text-align: center;
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: var(--surface-radius);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(34px * var(--gap-scale) * var(--dens)) calc(22px * var(--gap-scale));
+  position: relative; overflow: hidden;
+}
+/* 進行方向を示す上辺のバー。左から右へ濃くなる。 */
+.flow-step::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  opacity: var(--accent-bar-opacity);
+}
+.flow-step-mark {
+  width:  calc(58px * var(--dens)); height: calc(58px * var(--dens));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-item);
+  color: var(--on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.35);
+}
+.flow-step-mark .layout-icon { width: 55%; height: 55%; color: var(--on-primary); }
+.flow-step-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.35;
+}
+.flow-step-text {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0;
+}
+/* 矢印はステップの間に置く。縦横比を保つので線幅が崩れない。 */
+.flow-arrow {
+  flex: none; align-self: center;
+  width: calc(52px * var(--dens)); height: calc(26px * var(--dens));
+}

@@ -1,0 +1,46 @@
+.schedule {
+  display: flex; flex-direction: column;
+  /* 行数が少ないときは各行を伸ばして画面を埋める。
+     行の「間」を空けて散らすと縦線が途切れてしまうので、行自体を高くする。 */
+  min-height: calc(var(--canvas-height) * 0.42);
+}
+.sched-row { flex: 1; }
+.sched-row {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(140px, 18%) auto 1fr;
+  align-items: stretch;
+  column-gap: calc(22px * var(--gap-scale));
+}
+.sched-when {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-item); color: var(--color-accent);
+  text-align: right;
+  padding: calc(18px * var(--gap-scale) * var(--dens)) 0;
+  line-height: 1.4;
+}
+/* 縦線は各行いっぱいに引く。行が隣り合うと線がつながって 1 本に見える。 */
+.sched-rail { position: relative; width: 22px; }
+.sched-rail::before {
+  content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 2px; transform: translateX(-50%);
+  background: var(--border-strong);
+}
+/* 最初の行は線の上端を、最後の行は下端を隠して「始点と終点」を作る */
+.sched-row:first-child .sched-rail::before { top: 50%; }
+.sched-row:last-child .sched-rail::before { bottom: 50%; }
+.sched-dot {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(16px * var(--dens)); height: calc(16px * var(--dens));
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.22);
+}
+.sched-what {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-primary);
+  padding: calc(18px * var(--gap-scale) * var(--dens)) 0;
+  border-bottom: 1px solid var(--border-glass);
+}
+.sched-row:last-child .sched-what { border-bottom: none; }

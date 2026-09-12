@@ -1,0 +1,17 @@
+{% include "_partials/head.html" %}
+<div class="gallery-grid" data-count="{{ count }}">
+  {% for img in c['images'] %}
+  <figure class="clip gallery-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+    {% if img['src'] %}
+    <img class="gallery-media" src="{{ img['src'] }}" alt="">
+    {% else %}
+    {# 空の <img> は白い箱として描かれてしまう。未設定は枠線で示す #}
+    <div class="gallery-media gallery-media--placeholder"></div>
+    {% endif %}
+    {% if img['caption'] %}<figcaption class="gallery-caption">{{ img['caption'] }}</figcaption>{% endif %}
+  </figure>
+  {% endfor %}
+</div>
+{% if c['body'] %}
+<p class="clip gallery-note" data-seq="tail" data-anim="fade">{{ c['body'] }}</p>
+{% endif %}

@@ -1,0 +1,33 @@
+{# 位置決めの wrapper（.diagram-node）と、アニメーションする要素（.clip）を分ける。
+   GSAP は transform を丸ごと書き換えるため、CSS の translate(-50%,-50%) が
+   載った要素をそのまま animate すると、中央寄せが消えて図形からずれた場所へ飛ぶ。 #}
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage fixed-ar venn-stage" data-count="{{ count }}" style="--dg-ar: {{ ar }}">
+    <svg class="diagram" viewBox="{{ viewbox }}">
+      {% for ci in circles %}
+      <circle class="{{ ci['cls'] }}" cx="{{ ci['cx'] }}" cy="{{ ci['cy'] }}" r="{{ ci['r'] }}"
+              style="--dg-alpha: 0.30"></circle>
+      {% endfor %}
+    </svg>
+    {% for st in c['sets'][:circles|length] %}
+    <div class="diagram-node venn-label"
+         style="left: {{ label_pos[loop.index0]['left'] }}%; top: {{ label_pos[loop.index0]['top'] }}%">
+      <div class="clip" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="expand-circle">
+        {% if st['label'] %}<div class="venn-label-title">{{ st['label'] }}</div>{% endif %}
+        {% if st['text'] %}<p class="venn-label-text">{{ st['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if c['overlaps'] %}
+    {% set ov = c['overlaps'][0] %}
+    <div class="diagram-node venn-overlap-slot"
+         style="left: {{ overlap_pos['left'] }}%; top: {{ overlap_pos['top'] }}%">
+      <div class="clip venn-overlap" data-seq="tail" data-anim="pop">
+        {% if ov['label'] %}<div class="venn-overlap-title">{{ ov['label'] }}</div>{% endif %}
+        {% if ov['text'] %}<p class="venn-overlap-text">{{ ov['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>

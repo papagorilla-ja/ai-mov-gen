@@ -1,0 +1,37 @@
+.scale-row {
+  flex: 1; min-height: calc(var(--canvas-height) * 0.46);
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: calc(40px * var(--gap-scale) * var(--gap-dens));
+}
+.scale-cell {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  gap: calc(18px * var(--gap-scale));
+}
+/* 円は下ぞろえにする。中心ぞろえだと、小さい円が宙に浮いて比較しにくい。 */
+.scale-circle-wrap {
+  width: 100%;
+  display: flex; align-items: flex-end; justify-content: center;
+  min-height: calc(var(--canvas-height) * 0.34);
+}
+.scale-circle {
+  /* --d は最大円に対する直径の比 */
+  width: calc(var(--canvas-height) * 0.34 * var(--d));
+  height: calc(var(--canvas-height) * 0.34 * var(--d));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%,
+              rgba(var(--color-accent-rgb), 0.45),
+              rgba(var(--color-primary-rgb), 0.28));
+  border: 2px solid rgba(var(--color-primary-rgb), 0.5);
+}
+.scale-value {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(2.2rem * var(--ts) * var(--d));
+  color: var(--text-primary); line-height: 1;
+}
+.scale-value small { font-size: 0.55em; margin-left: 2px; }
+.scale-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-secondary); text-align: center;
+}

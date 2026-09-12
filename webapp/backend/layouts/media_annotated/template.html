@@ -1,0 +1,28 @@
+{% set main = c['images'][0] if c['images'] else none %}
+<div class="annot-grid">
+  <div class="annot-visual">
+    {% if main and main['src'] %}
+    <img class="clip annot-image" src="{{ main['src'] }}" data-seq="head" data-seq-offset="0.3" data-anim="blur-in">
+    {% else %}
+    <div class="clip annot-image annot-image--placeholder" data-seq="head" data-seq-offset="0.3" data-anim="fade"></div>
+    {% endif %}
+  </div>
+  <div class="annot-side">
+    {% include "_partials/head.html" %}
+    {% if c['body'] %}
+    <p class="clip annot-body" data-seq="head" data-seq-offset="0.45" data-anim="fade">{{ c['body'] }}</p>
+    {% endif %}
+    {# 注釈は各画像の caption を順番に使う。画像そのものへの座標指定は持たない型なので、
+       番号で対応づける形にしている。 #}
+    <ol class="annot-notes">
+      {% for img in c['images'] %}
+      {% if img['caption'] %}
+      <li class="clip annot-note" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-left">
+        <span class="annot-no">{{ loop.index }}</span>
+        <span class="annot-text">{{ img['caption'] }}</span>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ol>
+  </div>
+</div>

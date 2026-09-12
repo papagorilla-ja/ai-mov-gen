@@ -210,6 +210,31 @@
           </v-card-text>
         </v-card>
 
+        <!-- ── レイアウトの幅 ── -->
+        <v-card class="mb-4 glass-card border-thin" variant="outlined">
+          <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">レイアウトの幅</v-card-title>
+          <v-card-text class="pa-3">
+            <v-row dense>
+              <v-col v-for="opt in layoutsStore.breadthLevels" :key="opt.value" cols="4">
+                <v-card
+                  :class="['choice-card pa-3', { 'is-selected': breadthValue === opt.value }]"
+                  variant="outlined"
+                  @click="styleForm.layout_breadth = opt.value"
+                >
+                  <div class="text-caption font-weight-bold">{{ opt.label }}</div>
+                  <div class="text-caption text-medium-emphasis choice-desc">{{ opt.description }}</div>
+                  <div class="text-caption text-medium-emphasis mt-1">{{ opt.types.length }} 種類の型</div>
+                </v-card>
+              </v-col>
+            </v-row>
+            <div class="text-caption text-medium-emphasis mt-2">
+              シナリオ作成時に AI が選べる「情報の型」の範囲です。
+              広げるほど表現は増えますが、毎シーン違う図が出ると視聴者は図の読み方を
+              その都度学ぶことになります。研修動画では「控えめ」〜「標準」が扱いやすい範囲です。
+            </div>
+          </v-card-text>
+        </v-card>
+
         <!-- ── スタイルプロンプト ── -->
         <v-card class="mb-4 glass-card border-thin" variant="outlined">
           <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">AI にデザインを任せる</v-card-title>
@@ -311,6 +336,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useStyleStore } from '@/stores/style'
 import { useUiStore } from '@/stores/ui'
+import { useLayoutsStore } from '@/stores/layouts'
 import { styleApi } from '@/api/style.js'
 import { api } from '@/api/index.js'
 
@@ -319,6 +345,10 @@ const props = defineProps({
 })
 
 const styleStore = useStyleStore()
+const layoutsStore = useLayoutsStore()
+// 未設定（NULL）のときはレジストリ既定（standard）が使われる。
+// 画面側で既定値を書き込んでしまうと、既定を変えたときに追従しなくなる。
+const breadthValue = computed(() => styleForm.layout_breadth || layoutsStore.defaultBreadth)
 const ui = useUiStore()
 
 const previewUrl = ref('')
@@ -337,11 +367,17 @@ const options = computed(() => styleStore.options)
 
 // 画面サイズ以外の既定値はサーバーから取得したものを使う。
 // 画面サイズだけはサーバー側でも列の既定値を持つためここで定義する。
-const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null }
+const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null, layout_breadth: null }
 
 // 変更するとコンポジションの構造（HTML）が変わるため、サーバーでの再生成が要る項目。
 // これ以外は iframe に CSS を流し込むだけで反映できる。
 const STRUCTURAL_FIELDS = ['canvas_width', 'canvas_height', 'transition']
+// 配色・書体・キャンバスを変えると、レイアウトのサムネイルの見た目も変わる。
+// 取得済みのものは捨てて、次に開いたときに描き直させる。
+const THUMBNAIL_AFFECTING = ['color_primary', 'color_secondary', 'color_accent', 'color_bg',
+                             'color_text_primary', 'font_heading', 'font_body',
+                             'background_motif', 'decor_style', 'type_scale',
+                             'canvas_width', 'canvas_height']
 
 const styleForm = reactive({
   template_id: null,
@@ -356,6 +392,7 @@ const styleForm = reactive({
   decor_style: 'glass',
   type_scale: 'normal',
   transition: 'none',
+  layout_breadth: null,
   custom_css: '',
   bgm_volume: 0.3,
   canvas_width: 1920,
@@ -564,6 +601,9 @@ watch(
   (next, prev) => {
     if (suppressAutoSave.value) return
     if (STRUCTURAL_FIELDS.some((f) => next[f] !== prev[f])) needsRegenerate = true
+    // レイアウトのサムネイルはこの動画のテーマで描いている。
+    // テーマが変わったら取得済みのものを捨て、次に開いたときに描き直させる。
+    if (THUMBNAIL_AFFECTING.some((f) => next[f] !== prev[f])) layoutsStore.clearSamples()
 
     // 個別に手を入れた時点でプリセットとは別物になる。
     // 選択中の表示を残すと「見た目と選択状態が食い違う」ため解除する。
@@ -582,7 +622,8 @@ watch(
 
 onMounted(async () => {
   try {
-    await Promise.all([styleStore.fetchOptions(), styleStore.fetchTemplates()])
+    await Promise.all([styleStore.fetchOptions(), styleStore.fetchTemplates(),
+                       layoutsStore.fetchCatalog()])
     applyStyleToForm(await styleStore.fetchVideoStyle(props.videoId))
     promptText.value = styleStore.videoStyle?.style_prompt || ''
     await refreshPreview()

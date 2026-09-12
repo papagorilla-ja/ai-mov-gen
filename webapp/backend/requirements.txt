@@ -26,6 +26,9 @@ python-pptx==1.0.2
 Pillow==11.0.0
 pyyaml==6.0.2
 beautifulsoup4==4.12.3
+# レイアウトテンプレートの描画 (layouts/*/template.html)。
+# 既定で自動エスケープするため、タイトルやナレーションに < & が混ざっても HTML が壊れない。
+jinja2==3.1.6
 
 # 音声リサンプリング
 scipy==1.13.1

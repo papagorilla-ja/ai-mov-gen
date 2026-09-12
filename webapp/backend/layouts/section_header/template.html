@@ -1,0 +1,14 @@
+<h1 class="clip section-title" data-seq="head" data-anim="rise">{{ c['title'] }}</h1>
+<div class="clip section-rule" data-seq="head" data-seq-offset="0.2" data-anim="scale-x"></div>
+{% if c['subtitle'] %}
+<p class="clip section-subtitle" data-seq="head" data-seq-offset="0.4" data-anim="fade">{{ c['subtitle'] }}</p>
+{% endif %}
+{% if c['chapters'] %}
+<ul class="section-chapters" data-count="{{ count }}">
+  {% for ch in c['chapters'] %}
+  <li class="clip section-chapter" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+    <span class="section-chapter-num">{{ '%02d' % loop.index }}</span>{{ ch['label'] }}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

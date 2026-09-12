@@ -1,0 +1,15 @@
+/* 下の段から順に積み上がって見えるよう、登場順は逆から数える
+   （template 側で data-seq-index を反転させている）。 */
+.pyramid-stage { min-height: calc(var(--canvas-height) * 0.52); }
+.pyramid-body {
+  display: flex; flex-direction: column; align-items: center;
+  gap: calc(4px * var(--gap-scale));
+}
+.pyramid-label {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.pyramid-text {
+  font-size: var(--fs-sub); line-height: 1.45;
+  color: var(--text-secondary); margin: 0;
+}

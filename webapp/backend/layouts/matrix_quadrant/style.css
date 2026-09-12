@@ -1,0 +1,30 @@
+/* 枠（軸の配置）は共通CSSの .axis-frame が持つ。ここは 2×2 のセルだけ。 */
+.matrix-grid {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  gap: calc(14px * var(--gap-scale));
+}
+
+.matrix-cell {
+  display: flex; flex-direction: column; justify-content: flex-start;
+  gap: calc(8px * var(--gap-scale));
+  padding: calc(24px * var(--gap-scale) * var(--dens)) calc(26px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+/* 右上（両方が高い象限）だけ強調する。4 つが等価に見えると
+   「で、どこが良いのか」が伝わらないため。 */
+.matrix-cell.q2 {
+  background: rgba(var(--color-primary-rgb), 0.16);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.45);
+}
+.matrix-cell-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.matrix-cell-text {
+  font-size: var(--fs-sub); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0;
+}
+

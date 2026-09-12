@@ -1,0 +1,45 @@
+.vflow { display: flex; flex-direction: column; align-items: stretch; }
+.vflow-step {
+  display: flex; align-items: center;
+  gap: calc(26px * var(--gap-scale));
+  padding: calc(22px * var(--gap-scale) * var(--dens)) calc(32px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+.vflow-mark {
+  flex: none;
+  width: calc(54px * var(--dens)); height: calc(54px * var(--dens));
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-item);
+  color: var(--on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}
+.vflow-mark .layout-icon { width: 55%; height: 55%; color: var(--on-primary); }
+.vflow-body { flex: 1; min-width: 0; }
+.vflow-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.35;
+}
+.vflow-text {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: calc(4px * var(--gap-scale)) 0 0;
+}
+/* 通し番号は右端に薄く置く。左のアイコンと役割が重ならないよう、
+   こちらは「いま何番目か」の目安だけを担う。 */
+.vflow-index {
+  flex: none;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(2rem * var(--ts) * var(--dens));
+  color: var(--text-primary); opacity: 0.12;
+}
+/* 矢印はカードとカードの間。縦横比を保つので線幅が崩れない。 */
+.vflow-arrow {
+  align-self: center; flex: none;
+  width: calc(24px * var(--dens));
+  height: calc(38px * var(--gap-scale) * var(--gap-dens));
+  margin: calc(4px * var(--gap-scale)) 0;
+}

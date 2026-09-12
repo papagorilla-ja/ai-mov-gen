@@ -1,0 +1,17 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="stack-list" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <div class="clip stack-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      <div class="stack-side">
+        {% if it['icon'] and icon(it['icon']) %}{{ icon(it['icon']) }}
+        {% else %}<span class="stack-num">{{ '%02d' % loop.index }}</span>{% endif %}
+      </div>
+      <div class="stack-body">
+        {% if it['label'] %}<div class="stack-label">{{ it['label'] }}</div>{% endif %}
+        {% if it['text'] %}<p class="stack-text">{{ it['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

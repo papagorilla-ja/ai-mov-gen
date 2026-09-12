@@ -533,15 +533,10 @@ body.preview-mode #stage {
   pointer-events: none;
 }
 
-/* ---- レイアウト種別による背景の強弱 ----
-   ランダムなばらつきは入れず、「節目は背景を強く、本文は控えめに」という
-   意味のある強弱だけをつける。同じ配色のまま見ていてリズムが生まれる。 */
-.slide.slide-layout-section_header { --veil: 0; }        /* 章の切り替わり: 背景を主役に */
-.slide.slide-layout-title { --veil: 0.12; }              /* 表紙: ほぼ背景を活かす */
-.slide.slide-layout-image_gallery { --veil: 0.72; }      /* 画像が主役なので背景は控えめに */
-.slide.slide-layout-full_image { --veil: 1; }            /* 全面画像: 背景装飾を完全に消す */
-.slide.slide-layout-table,
-.slide.slide-layout-graph_chart { --veil: 0.78; }        /* 可読性最優先。数字を邪魔しない */
+/* ---- 背景の強弱 ----
+   どれだけ覆うかはレイアウトごとに違う（章扉は背景を主役に、全面画像は完全に消す）。
+   値は layouts/<id>/spec.py の veil が持ち、composition.py が
+   インラインの --veil として書き出す。ここに一覧を持つと二重管理になるため置かない。 */
 
 /* ---- 装飾オーブ（背景の抜け感） ----
    覆いと同じ負のレイヤーに置き、本文より必ず下に来るようにする。 */
@@ -557,9 +552,6 @@ body.preview-mode #stage {
   width: 520px; height: 520px; left: -140px; bottom: -180px;
   background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
 }
-/* 節目のシーンでは装飾も大きく見せる */
-.slide.slide-layout-section_header .deco-orb-1 { width: 980px; height: 980px; right: -260px; top: -240px; }
-.slide.slide-layout-section_header .deco-orb-2 { width: 720px; height: 720px; left: -220px; bottom: -260px; }
 
 /* ==========================================================================
    装飾スタイル（カードや枠の質感）
@@ -639,7 +631,9 @@ body.preview-mode #stage {
   font-family: var(--font-heading);
   font-size: calc(1.05rem * var(--ts));
   font-weight: 700;
-  letter-spacing: 3px; text-transform: uppercase;
+  /* 英語固定ラベルをやめ、内容に紐づく日本語を入れるようにしたため、
+     全角前提の字間に落とす（3px + uppercase は英語の小見出し向けの指定だった）。 */
+  letter-spacing: 1.5px;
   color: var(--color-accent);
   margin-bottom: calc(18px * var(--gap-scale));
 }
@@ -661,343 +655,185 @@ body.preview-mode #stage {
 
 .slide-body-area { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 
-/* ===== text_only: 本文をカードで見せる ===== */
-.body-card {
-  position: relative;
-  background: var(--surface-bg);
-  border: var(--surface-border);
-  border-left: 5px solid var(--color-primary);
-  border-radius: 0 var(--surface-radius) var(--surface-radius) 0;
-  backdrop-filter: var(--surface-blur);
-  box-shadow: var(--surface-shadow);
-  padding: calc(44px * var(--gap-scale)) calc(52px * var(--gap-scale));
-  max-width: 1500px;
-}
-.body-card .body-text {
-  font-size: calc(1.75rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-primary);
-  white-space: pre-line;
-  margin: 0;
-}
-.body-card::after {
-  content: ''; position: absolute; left: 44px; top: -18px;
-  width: 36px; height: 36px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  border-radius: 10px; transform: rotate(45deg);
-  opacity: var(--accent-bar-opacity);
+/* ==========================================================================
+   8. レイアウト共通の基盤
+
+   ここには「全レイアウトが使う部品」だけを置く。
+   個々のレイアウトの見た目は layouts/<id>/style.css にあり、
+   composition.py がその動画で実際に使ったものだけを末尾に連結する。
+   ========================================================================== */
+
+/* ---- 密度段階（自動適応の第 2 層） ----
+   項目数が増えるほど文字と余白を詰める。レイアウト側は
+   calc(基準値 * var(--dens)) と書くだけで件数対応が付いてくる。
+   JS の実測（第 3 層）に頼る前に、まずここで決定的に収める。 */
+/* 既定値。data-count を持たないレイアウト（statement など）でも
+   var(--dens) が必ず解決するようにしておく。解決できないと calc() 全体が
+   無効になり、font-size の指定がまるごと効かなくなる。 */
+/* --dens   … 文字サイズの倍率。緩やかに変える（大きく振ると字面が壊れる）
+   --gap-dens … 余白の倍率。強く変える。
+
+   2 つに分けているのが要点。項目が少ないときの問題は「文字が小さい」ことより
+   「間が空きすぎてスカスカに見える」ことなので、余白の方を大きく動かす。
+   逆に項目が多いときは、まず余白から削って文字を守る。 */
+#stage           { --dens: 1;    --gap-dens: 1; }
+[data-count]     { --dens: 1;    --gap-dens: 1; }
+[data-count="1"] { --dens: 1.30; --gap-dens: 2.2; }
+[data-count="2"] { --dens: 1.20; --gap-dens: 1.8; }
+[data-count="3"] { --dens: 1.10; --gap-dens: 1.4; }
+[data-count="4"] { --dens: 1.00; --gap-dens: 1.0; }
+[data-count="5"] { --dens: 0.90; --gap-dens: 0.82; }
+[data-count="6"] { --dens: 0.82; --gap-dens: 0.70; }
+[data-count="7"] { --dens: 0.75; --gap-dens: 0.60; }
+[data-count="8"] { --dens: 0.68; --gap-dens: 0.52; }
+
+/* 4:3 (1440px) は 16:9 (1920px) より横幅が 25% 狭い。
+   横に並べるレイアウトが破綻しないよう、もう一段詰める。 */
+[data-aspect="4:3"] [data-count="3"] { --dens: 1.02; }
+[data-aspect="4:3"] [data-count="4"] { --dens: 0.93; }
+[data-aspect="4:3"] [data-count="5"] { --dens: 0.84; }
+[data-aspect="4:3"] [data-count="6"] { --dens: 0.76; }
+[data-aspect="4:3"] [data-count="7"] { --dens: 0.70; }
+
+/* ---- 文字サイズの共通トークン ----
+   40 種のレイアウトが各自で rem 値を決めると、同じ「項目の見出し」でも
+   レイアウトごとに大きさが違う、という崩れ方をする。意味で名前を付けて
+   ここに集約し、レイアウト側は font-size: var(--fs-item) と書くだけにする。
+
+   #stage だけでなく #stage * にも宣言しているのは、var(--dens) を
+   「その値を使う要素の位置」で解決させるため。#stage にだけ置くと、
+   そこで --dens: 1 のまま確定した値が子へ継承され、密度段階が効かなくなる。 */
+#stage, #stage * {
+  --fs-lead:  calc(2.40rem * var(--ts) * var(--dens));  /* 主文・大きめの一文 */
+  --fs-item:  calc(1.85rem * var(--ts) * var(--dens));  /* 項目の見出し */
+  --fs-body:  calc(1.60rem * var(--ts) * var(--dens));  /* 説明文 */
+  --fs-sub:   calc(1.30rem * var(--ts) * var(--dens));  /* 補足・キャプション */
+  --fs-micro: calc(1.05rem * var(--ts));                /* 軸ラベル・単位など */
 }
 
-/* ===== bullet_list: 番号バッジ付きカード行 ===== */
-.bullet-list { display: flex; flex-direction: column; gap: calc(22px * var(--gap-scale)); }
-.bullet-item {
-  display: flex; align-items: center; gap: calc(28px * var(--gap-scale));
-  background: var(--surface-bg);
-  border: var(--surface-border);
-  border-radius: var(--surface-radius);
-  backdrop-filter: var(--surface-blur);
-  box-shadow: var(--surface-shadow);
-  padding: calc(26px * var(--gap-scale)) calc(34px * var(--gap-scale));
-  position: relative; overflow: hidden;
-}
-.bullet-item::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
-  opacity: var(--accent-bar-opacity);
-}
-.bullet-num {
-  flex-shrink: 0;
-  font-family: var(--font-heading); font-weight: 800;
-  font-size: calc(1.5rem * var(--ts));
-  width: calc(62px * var(--gap-scale)); height: calc(62px * var(--gap-scale));
-  border-radius: 16px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--on-primary);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.35);
-}
-.bullet-content p {
-  font-size: calc(1.5rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-primary);
-  margin: 0;
+/* ---- 実測オートフィット（自動適応の第 3 層） ----
+   日本語は「3 項目だが各 80 文字」のような振れがあり、件数だけでは
+   収まりを予測できない。app.js が描画後に実測し、はみ出していれば
+   この箱を縮小する。
+
+   GSAP が transform を握る .clip には付けないこと。取り合いになって
+   登場アニメーションが壊れる。必ず .clip を「包む」側に付ける。 */
+[data-fit] { transform-origin: center center; }
+
+/* ---- アイコン ----
+   _icons.py が currentColor で描くので、置いた場所の色をそのまま継ぐ。 */
+.layout-icon {
+  width:  calc(40px * var(--dens, 1) * var(--ts));
+  height: calc(40px * var(--dens, 1) * var(--ts));
+  flex: none;
+  stroke-width: 2;
 }
 
-/* ===== card_panel: グリッドカード ===== */
-.card-grid { display: grid; gap: calc(32px * var(--gap-scale)); align-items: stretch; }
-.card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-.card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-.info-card {
-  background: var(--surface-bg);
-  border: var(--surface-border);
-  border-radius: calc(var(--surface-radius) + 2px);
-  backdrop-filter: var(--surface-blur);
-  box-shadow: var(--surface-shadow);
-  padding: calc(40px * var(--gap-scale)) calc(34px * var(--gap-scale));
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column; gap: calc(16px * var(--gap-scale));
-}
-.info-card::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  opacity: var(--accent-bar-opacity);
-}
-.info-card-index {
-  font-family: var(--font-heading); font-weight: 800;
-  font-size: calc(1.1rem * var(--ts));
-  width: 52px; height: 52px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--color-accent);
-  background: rgba(var(--color-accent-rgb), 0.12);
-  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
-}
-.info-card-title {
-  font-family: var(--font-heading);
-  font-size: calc(1.7rem * var(--ts));
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.35;
-}
-.info-card-text {
-  font-size: calc(1.28rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-secondary);
-  margin: 0;
-}
+/* ---- 図解の土台 ----
 
-/* ===== comparison ===== */
-.comparison-container { display: flex; flex-direction: column; height: 100%; }
-.comparison-cols {
-  flex: 1; display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: stretch; gap: calc(36px * var(--gap-scale));
-}
-.comparison-col {
-  background: var(--surface-bg);
-  border: var(--surface-border);
-  border-radius: calc(var(--surface-radius) + 2px);
-  backdrop-filter: var(--surface-blur);
-  box-shadow: var(--surface-shadow);
-  padding: 0 0 calc(40px * var(--gap-scale));
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.comparison-col-head {
-  font-family: var(--font-heading); font-weight: 700;
-  font-size: calc(1.5rem * var(--ts));
-  padding: calc(24px * var(--gap-scale)) calc(36px * var(--gap-scale));
-  color: var(--text-primary);
-  margin-bottom: calc(28px * var(--gap-scale));
-}
-.comparison-col.left .comparison-col-head {
-  background: linear-gradient(135deg, rgba(var(--color-secondary-rgb), 0.35), rgba(var(--color-secondary-rgb), 0.05));
-  border-bottom: 3px solid var(--color-secondary);
-}
-.comparison-col.right .comparison-col-head {
-  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.35), rgba(var(--color-accent-rgb), 0.05));
-  border-bottom: 3px solid var(--color-accent);
-}
-.comparison-col p {
-  font-size: calc(1.45rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-primary);
-  padding: 0 calc(36px * var(--gap-scale));
-  white-space: pre-line; margin: auto 0;
-}
-.comparison-vs {
-  align-self: center;
-  font-family: var(--font-heading); font-weight: 800;
-  font-size: calc(1.25rem * var(--ts));
-  color: var(--on-primary);
-  width: 74px; height: 74px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  box-shadow: 0 0 36px rgba(var(--color-primary-rgb), 0.55);
-}
+   方針は 2 つ。
 
-/* ===== section_header ===== */
-.slide.slide-layout-section_header { align-items: center; justify-content: center; text-align: center; }
-.section-title {
-  font-family: var(--font-heading);
-  font-size: calc(5rem * var(--ts));
-  font-weight: 800; line-height: 1.15;
-  background: linear-gradient(120deg, var(--title-grad-from) 20%, var(--section-grad-to) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  max-width: 1500px;
-}
-.section-rule {
-  width: 160px; height: 5px; border-radius: 3px;
-  margin: calc(36px * var(--gap-scale)) 0;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-}
-.section-subtitle {
-  font-size: calc(1.7rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-secondary);
-  max-width: 1200px;
-}
+   1. 文字は必ず HTML 側に置く。
+      SVG の <text> は折り返さず、はみ出しの実測にも乗らないため、
+      文字を SVG に入れると 3 層の自動適応がどれも効かなくなる。
 
-/* ===== table: 行カード型 ===== */
-.data-table {
-  width: 100%; border-collapse: separate; border-spacing: 0 12px;
-  font-size: calc(1.35rem * var(--ts));
-}
-.data-table thead th {
-  font-family: var(--font-heading); font-weight: 700;
-  font-size: calc(1rem * var(--ts));
-  text-transform: uppercase; letter-spacing: 1.5px;
-  color: var(--color-accent);
-  text-align: left; padding: 0 32px 14px;
-}
-.data-table tbody tr { background: var(--surface-bg); }
-.data-table tbody td {
-  padding: calc(26px * var(--gap-scale)) 32px;
-  color: var(--text-primary);
-  border-top: var(--surface-border);
-  border-bottom: var(--surface-border);
-}
-.data-table tbody td:first-child {
-  border-left: var(--surface-border);
-  border-radius: 16px 0 0 16px;
-  font-weight: 600;
-  box-shadow: inset 4px 0 0 var(--color-primary);
-}
-.data-table tbody td:last-child {
-  border-right: var(--surface-border);
-  border-radius: 0 16px 16px 0;
-}
+   2. 背景の大きな図形は preserveAspectRatio="none" で箱いっぱいに引き伸ばし、
+      **塗りだけで形を作る**（線を引かない）。
+      引き伸ばすと線の太さが縦横で変わってしまうため。
+      代わりに、この方式だと SVG の座標と箱の割合が完全に一致するので、
+      HTML の文字を left/top の % で図形にぴったり重ねられる。
 
-/* ===== chat_dialog ===== */
-.dialog-container {
-  display: flex; flex-direction: column; height: 100%;
-  gap: calc(24px * var(--gap-scale)); overflow-y: auto;
-}
-.dialog-line { display: flex; max-width: 78%; }
-.dialog-line.speaker-a { align-self: flex-start; }
-.dialog-line.speaker-b { align-self: flex-end; }
-.dialog-line .bubble {
-  padding: calc(22px * var(--gap-scale)) calc(28px * var(--gap-scale));
-  border-radius: var(--surface-radius);
-  font-size: calc(1.3rem * var(--ts));
-  line-height: var(--lh-body);
-  color: var(--text-primary);
-  background: var(--surface-bg);
-  border: var(--surface-border);
-  backdrop-filter: var(--surface-blur);
-  box-shadow: var(--surface-shadow);
-}
-.dialog-line.speaker-a .bubble {
-  border-bottom-left-radius: 4px;
-  border-left: 3px solid var(--color-secondary);
-}
-.dialog-line.speaker-b .bubble {
-  border-bottom-right-radius: 4px;
-  border-right: 3px solid var(--color-accent);
-}
-
-/* ===== graph_chart ===== */
-.chart-canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
-
-/* ===== text_left_image_right: 左右2カラム ===== */
-.grid-2col {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: calc(60px * var(--gap-scale));
-  align-items: center; height: 100%;
-}
-.two-col-container { height: 100%; }
-.two-col-container .col-left,
-.two-col-container .col-right {
-  min-width: 0;
-  display: flex; flex-direction: column; justify-content: center;
-}
-.two-col-container.reverse .col-left { order: 2; }
-.two-col-container.reverse .col-right { order: 1; }
-
-/* PPTX 由来の図解は白背景・濃色文字のことが多い。
-   囲みは常に明るい地にして、図解そのものが沈まないようにする
-   （ここだけはテーマに追従させない意図的な例外）。 */
-.illustration {
-  max-width: 100%; max-height: 720px;
-  width: 100%; height: auto;
-  object-fit: contain;
-  border-radius: var(--surface-radius);
-  border: 1px solid var(--border-glass);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow-soft);
-  padding: 20px;
-}
-.illustration--placeholder {
-  aspect-ratio: 16 / 10;
-  height: auto;
-  border: 2px dashed var(--border-glass-hover);
-  border-radius: var(--surface-radius);
-  background: var(--surface-bg);
-}
-
-/* ===== full_image: 全面画像 ===== */
-.slide.slide-layout-full_image { padding: 0; }
-.full-screen-image {
+   3. 線が要るもの（矢印・コネクタ）は、小さな独立した SVG を
+      HTML 要素として置き、そちらは縦横比を保つ。線幅が崩れない。 */
+.diagram-stage { position: relative; flex: 1; min-height: 0; width: 100%; }
+.diagram-stage > .diagram {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  object-fit: cover;
 }
-.full-screen-image--placeholder {
-  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-main));
-}
-/* タイトルを読ませるため、下側を背景色で覆う */
-.slide.slide-layout-full_image::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(var(--bg-main-rgb), 0) 40%, rgba(var(--bg-main-rgb), 0.88) 100%);
-  pointer-events: none;
-}
-.image-overlay-title {
+.diagram-node {
   position: absolute;
-  left: 100px; right: 100px; bottom: 80px;
-  z-index: 3;
-  font-family: var(--font-heading);
-  font-size: calc(3.2rem * var(--ts));
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1.3;
-  text-shadow: 0 4px 24px rgba(var(--bg-main-rgb), 0.85);
-}
-
-/* 手動アップロード等で使う絶対配置アセット（slot-1〜3） */
-.asset-slot {
-  object-fit: contain;
-  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.45));
-}
-
-/* ===== image_gallery ===== */
-.gallery-grid {
-  display: grid; gap: calc(32px * var(--gap-scale));
-  flex: 1; align-items: stretch; min-height: 0;
-}
-.gallery-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-.gallery-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-.gallery-item {
-  margin: 0;
-  display: flex; flex-direction: column;
-  /* 図解が沈まないよう .illustration と同じく明るい地で固定する */
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--surface-radius);
-  padding: 18px;
-  overflow: hidden;
-  box-shadow: var(--shadow-soft);
-}
-.gallery-media {
-  flex: 1; width: 100%; height: 100%; min-height: 0;
-  object-fit: contain; border-radius: 10px;
-}
-.gallery-caption {
-  margin-top: 12px;
-  font-size: calc(1.05rem * var(--ts));
-  color: var(--text-secondary);
+  transform: translate(-50%, -50%);
   text-align: center;
 }
 
-/* ==========================================================================
-   ここから下にプロジェクト固有のスライドレイアウトを追記する
-   （動画ごとのカスタムCSSは composition.py がさらに後ろへ連結する）
-   ========================================================================== */
+/* 縦横比を固定した図解の箱。高さから幅を決めるので、
+   SVG の viewBox と箱の比率が必ず一致する。
+   一致していれば preserveAspectRatio が既定（meet）でも余白が出ず、
+   % で置いた HTML の文字が図形にぴったり重なる。
+   円を歪ませたくない図（ベン図・サイクル）で使う。 */
+.diagram-stage.fixed-ar {
+  flex: none;
+  height: 100%;
+  width: auto;
+  aspect-ratio: var(--dg-ar, 1 / 1);
+  margin: 0 auto;
+}
+
+/* 塗りだけで形を作る背景図形。濃さは --dg-alpha で段階を付ける。 */
+.dg-fill   { fill: rgba(var(--color-primary-rgb), var(--dg-alpha, 0.22)); }
+.dg-fill-2 { fill: rgba(var(--color-accent-rgb),  var(--dg-alpha, 0.22)); }
+.dg-fill-3 { fill: rgba(var(--color-secondary-rgb), var(--dg-alpha, 0.22)); }
+
+/* 縦横比を保つ小さな SVG（矢印・コネクタ）用。 */
+.dg-arrow   { fill: none; stroke: var(--color-accent); stroke-width: 2.5;
+              stroke-linecap: round; stroke-linejoin: round; }
+.dg-edge    { fill: none; stroke: var(--border-strong); stroke-width: 2;
+              stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- 2 軸の枠 ----
+   縦軸を左に、横軸を下に置き、中央のセルに中身（四象限・散布図など）を入れる。
+   複数のレイアウトが同じ枠を使うため、ここに 1 つだけ置く。
+   レイアウト側の CSS に書くと、そのレイアウト単体で使われたときにだけ
+   枠が付かない（CSS はその動画で使われたレイアウトの分しか連結されない）。 */
+.axis-frame {
+  flex: 1; min-height: calc(var(--canvas-height) * 0.50);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  column-gap: calc(18px * var(--gap-scale));
+  row-gap: calc(10px * var(--gap-scale));
+}
+.axis-frame > .axis-y {
+  grid-column: 1; grid-row: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: space-between;
+  padding: calc(6px * var(--gap-scale)) 0;
+}
+.axis-frame > .axis-x {
+  grid-column: 2; grid-row: 2;
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+/* 枠の中身（四象限のセル群、散布図の面）はここに入る */
+.axis-frame > .axis-body { grid-column: 2; grid-row: 1; width: 100%; height: 100%; }
+
+.axis-end {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-sub); color: var(--text-muted); letter-spacing: 1px;
+}
+.axis-name {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-sub); color: var(--color-accent); letter-spacing: 2px;
+}
+/* 縦軸の名前だけ日本語の縦組みにする。rotate は掛けない
+   （掛けると 1 文字ずつ天地が逆になる）。writing-mode を親の flex 側に置くと
+   主軸が横向きになって 3 つが横に並んでしまうので、必ずこの要素だけに掛ける。 */
+.axis-y .axis-name { writing-mode: vertical-rl; }
+
+/* ---- レイアウト内の共通テキスト ---- */
+.layout-label { font-family: var(--font-heading); font-weight: 700; color: var(--text-primary); }
+.layout-text  { font-family: var(--font-body); color: var(--text-secondary); line-height: var(--lh-body); }
+
+/* 結論・まとめの一行。対比や数式のように「で、何が言えるか」を締める場所。 */
+.layout-verdict {
+  align-self: center;
+  margin-top: calc(26px * var(--gap-scale));
+  padding: calc(12px * var(--gap-scale)) calc(28px * var(--gap-scale));
+  border-radius: 999px;
+  background: rgba(var(--color-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.35);
+  font-family: var(--font-heading);
+  font-size: calc(1.45rem * var(--ts));
+  font-weight: 700;
+  color: var(--text-primary);
+}

@@ -1,0 +1,17 @@
+.hero-eyebrow { margin-bottom: calc(30px * var(--gap-scale)); }
+.hero-area { justify-content: center; }
+.hero-lead {
+  font-family: var(--font-heading);
+  font-size: calc(4.2rem * var(--ts));
+  font-weight: 800; line-height: 1.3;
+  margin: 0; max-width: 1500px;
+  background: linear-gradient(120deg, var(--title-grad-from) 25%, var(--section-grad-to) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-body {
+  font-size: var(--fs-item); line-height: var(--lh-body);
+  color: var(--text-secondary);
+  margin: calc(32px * var(--gap-scale)) 0 0; max-width: 1200px;
+}
+.hero-note { margin: calc(24px * var(--gap-scale)) 0 0; font-size: var(--fs-micro); color: var(--text-muted); }

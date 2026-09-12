@@ -1,0 +1,23 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage funnel-stage" data-count="{{ count }}">
+    <svg class="diagram" viewBox="{{ viewbox }}" preserveAspectRatio="none">
+      {% for b in bands %}
+      <polygon class="dg-fill" points="{{ b['points'] }}" style="--dg-alpha: {{ b['alpha'] }}"></polygon>
+      {% endfor %}
+    </svg>
+    {# 上から順に出す。絞り込まれていく順序そのものが伝えたいことなので、
+       ピラミッド（下から積む）とは登場順を逆にしている。 #}
+    {% for it in rows %}
+    <div class="diagram-node funnel-node"
+         style="top: {{ bands[loop.index0]['top_pct'] }}%; left: 50%;
+                width: {{ bands[loop.index0]['width_pct'] }}%">
+      <div class="clip funnel-body"
+           data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+        {% if it['label'] %}<div class="funnel-label">{{ it['label'] }}</div>{% endif %}
+        {% if it['text'] %}<p class="funnel-text">{{ it['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

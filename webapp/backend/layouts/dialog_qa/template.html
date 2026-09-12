@@ -1,0 +1,15 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="qa-list" data-count="{{ pairs|length }}">
+    {% for p in pairs %}
+    <div class="clip qa-block" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      {% if p['q'] %}
+      <div class="qa-line qa-q"><span class="qa-mark q">Q</span><p>{{ p['q'] }}</p></div>
+      {% endif %}
+      {% if p['a'] %}
+      <div class="qa-line qa-a"><span class="qa-mark a">A</span><p>{{ p['a'] }}</p></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

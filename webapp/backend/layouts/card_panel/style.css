@@ -1,0 +1,51 @@
+.card-grid {
+  display: grid;
+  gap: calc(32px * var(--gap-scale) * var(--gap-dens));
+  align-items: stretch;
+  /* 内容の量だけで高さを決めると、3 枚でも縦に痩せて画面が余る。
+     パネルとして立たせる下限を与え、文章量の差で高さが揃わないことも防ぐ。 */
+  min-height: calc(var(--canvas-height) * 0.40);
+}
+.card-grid[data-count="2"] { grid-template-columns: repeat(2, 1fr); }
+.card-grid[data-count="3"] { grid-template-columns: repeat(3, 1fr); }
+.card-grid[data-count="4"] { grid-template-columns: repeat(4, 1fr); }
+/* 4:3 は横幅が足りないので、4 枚は 2 段に折る */
+[data-aspect="4:3"] .card-grid[data-count="4"] { grid-template-columns: repeat(2, 1fr); }
+
+.info-card {
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  border-radius: calc(var(--surface-radius) + 2px);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+  padding: calc(40px * var(--gap-scale) * var(--dens)) calc(34px * var(--gap-scale));
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  justify-content: flex-start;
+  gap: calc(16px * var(--gap-scale));
+}
+.info-card::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  opacity: var(--accent-bar-opacity);
+}
+/* 番号でもアイコンでも同じ枠に収まるようにして、混在しても高さが揃うようにする */
+.info-card-mark {
+  width:  calc(56px * var(--dens)); height: calc(56px * var(--dens));
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
+}
+.info-card-mark .layout-icon { width: 60%; height: 60%; }
+.info-card-index { font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-sub); }
+.info-card-title {
+  font-family: var(--font-heading);
+  font-size: var(--fs-item); font-weight: 700;
+  color: var(--text-primary); line-height: 1.35;
+}
+.info-card-text {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0;
+}

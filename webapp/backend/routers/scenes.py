@@ -327,106 +327,51 @@ async def get_preview_audio_result(job_id: str):
     return Response(content=job["audio"], media_type="audio/wav")
 
 
-def normalize_slide_content(layout_type: str, content: dict) -> dict:
-    """LLM生成結果をレイアウトに合わせて正規化・バリデーションする"""
-    if not isinstance(content, dict):
-        return {}
-    res = {**content}
+async def _video_context(scene: Scene, db: AsyncSession) -> tuple[str, str | None]:
+    """シーンが属する動画の (縦横比, レイアウトの幅) を引く。
 
-    # body のエイリアスマッピング（LLM が text や content 等の別キーで出力した場合の対応）
-    if not res.get("body"):
-        for alt_key in ["text", "content", "description"]:
-            if isinstance(res.get(alt_key), str) and res[alt_key].strip():
-                res["body"] = res[alt_key].strip()
-                break
+    どちらもレイアウトの自動差し替えに使う。
+    取れなければ既定（16:9 / レジストリ既定）に委ねる。
+    """
+    stmt = (
+        select(VideoStyle.canvas_width, VideoStyle.canvas_height, VideoStyle.layout_breadth)
+        .join(Scenario, Scenario.video_id == VideoStyle.video_id)
+        .where(Scenario.id == scene.scenario_id)
+    )
+    row = (await db.execute(stmt)).first()
+    if not row:
+        return "16:9", None
+    width, height, breadth = row
+    aspect = "4:3" if ((width or 1920) / (height or 1080)) < 1.5 else "16:9"
+    return aspect, breadth
 
-    if layout_type == "bullet_list":
-        bp = res.get("bullet_points")
-        if isinstance(bp, str):
-            bp = [line.strip() for line in bp.split("\n") if line.strip()]
-        elif isinstance(bp, list):
-            bp = [str(x).strip() for x in bp if str(x).strip()]
-        else:
-            bp = []
-        res["bullet_points"] = bp
 
-    elif layout_type == "card_panel":
-        cards = res.get("cards")
-        norm_cards = []
-        if isinstance(cards, list):
-            for c in cards:
-                if isinstance(c, dict):
-                    norm_cards.append({
-                        "title": str(c.get("title") or "").strip(),
-                        "text": str(c.get("text") or "").strip()
-                    })
-        res["cards"] = norm_cards
+async def _previous_layout(scene: Scene, db: AsyncSession) -> tuple[str, ...]:
+    """直前のシーンで使った見せ方。同じものが続くのを避けるために渡す。"""
+    stmt = (
+        select(Scene.layout_type)
+        .where(Scene.scenario_id == scene.scenario_id, Scene.index < scene.index)
+        .order_by(Scene.index.desc()).limit(1)
+    )
+    prev = (await db.execute(stmt)).scalars().first()
+    return (prev,) if prev else ()
 
-    elif layout_type == "table":
-        headers = res.get("headers")
-        if isinstance(headers, str):
-            headers = [h.strip() for h in headers.split(",") if h.strip()]
-        elif not isinstance(headers, list):
-            headers = []
-        headers = [str(h).strip() for h in headers]
-        res["headers"] = headers
 
-        rows = res.get("rows")
-        norm_rows = []
-        if isinstance(rows, list):
-            for r in rows:
-                if isinstance(r, str):
-                    r_list = [col.strip() for col in r.split(",")]
-                elif isinstance(r, list):
-                    r_list = [str(col).strip() for col in r]
-                else:
-                    r_list = []
-                if len(r_list) < len(headers):
-                    r_list.extend([""] * (len(headers) - len(r_list)))
-                elif len(r_list) > len(headers) and len(headers) > 0:
-                    r_list = r_list[:len(headers)]
-                norm_rows.append(r_list)
-        res["rows"] = norm_rows
+async def apply_generated_content(scene: Scene, result: dict) -> None:
+    """generate_scene_content の結果をシーンへ反映する。
 
-    elif layout_type == "graph_chart":
-        chart = res.get("chart")
-        if not isinstance(chart, dict):
-            chart = {}
-        chart_type = chart.get("type") or "bar"
-        labels = chart.get("labels") or []
-        if isinstance(labels, str):
-            labels = [l.strip() for l in labels.split(",") if l.strip()]
-        values = chart.get("values") or []
-        if isinstance(values, str):
-            values = [v.strip() for v in values.split(",") if v.strip()]
-        norm_values = []
-        for v in values:
-            try:
-                norm_values.append(float(v) if "." in str(v) else int(v))
-            except Exception:
-                pass
-        min_len = min(len(labels), len(norm_values))
-        res["chart"] = {
-            "type": str(chart_type),
-            "labels": [str(l) for l in labels[:min_len]],
-            "values": norm_values[:min_len],
-            "unit": str(chart.get("unit") or "")
-        }
-
-    elif layout_type == "chat_dialog":
-        lines = res.get("lines")
-        norm_lines = []
-        if isinstance(lines, list):
-            for i, l in enumerate(lines):
-                if isinstance(l, dict):
-                    spk = str(l.get("speaker") or ("A" if i % 2 == 0 else "B")).strip().upper()
-                    norm_lines.append({
-                        "speaker": spk if spk in ["A", "B"] else ("A" if i % 2 == 0 else "B"),
-                        "text": str(l.get("text") or "").strip()
-                    })
-        res["lines"] = norm_lines
-
-    return res
+    レイアウトも結果に含まれる（AI が選び、件数の検査で必要なら差し替わっている）。
+    内容は既に型のスキーマへ正規化済みなので、ここで整形はしない。
+    """
+    scene.layout_type = result["layout"]
+    content = dict(result["slide_content_json"])
+    if not content.get("title"):
+        content["title"] = scene.title or ""
+    scene.slide_content_json = json.dumps(content, ensure_ascii=False)
+    if result.get("narration_text"):
+        scene.narration_text = result["narration_text"]
+    if result.get("layout_reason"):
+        print(f"[layouts] scene {scene.index}: {result['layout_reason']}")
 
 
 @router.post("/scenes/{scene_id}/generate-content", response_model=SceneRead)
@@ -436,23 +381,15 @@ async def generate_scene_content(scene_id: str, db: AsyncSession = Depends(get_d
     if not scene:
         raise HTTPException(status_code=404, detail="シーンが見つかりません")
 
+    aspect, _ = await _video_context(scene, db)
     result = await generate_scene_content_llm(
         title=scene.title or "",
         summary=scene.outline_summary or "",
         layout_type=scene.layout_type or "text_only",
+        aspect=aspect,
+        avoid=await _previous_layout(scene, db),
     )
-    norm_content = normalize_slide_content(scene.layout_type or "text_only", result["slide_content_json"])
-    try:
-        current = json.loads(scene.slide_content_json) if scene.slide_content_json else {}
-    except Exception:
-        current = {}
-    merged = {**current, **norm_content}
-    merged.setdefault("title", scene.title or current.get("title", ""))
-    if current.get("summary"):
-        merged.setdefault("summary", current["summary"])
-    scene.slide_content_json = json.dumps(merged, ensure_ascii=False)
-    if result["narration_text"]:
-        scene.narration_text = result["narration_text"]
+    await apply_generated_content(scene, result)
     await db.flush()
     return scene
 
@@ -568,29 +505,41 @@ async def _run_bulk_generate_content(job_id: str, video_id: str, only_empty: boo
                 bulk_content_job_store[job_id]["status"] = "completed"
                 return
 
+            aspect, _ = await _video_context(target_scenes[0], db) if target_scenes else ("16:9", None)
+            # 直前に使った見せ方を持ち回して、同じ絵が続かないようにする。
+            # DB を引き直さずに済むよう、ここでは生成順の 1 つ前を覚えておく。
+            previous: tuple[str, ...] = ()
+            failed: list[str] = []
             for idx, scene in enumerate(target_scenes):
                 bulk_content_job_store[job_id]["current_title"] = scene.title or f"Scene {scene.index}"
-                result = await generate_scene_content_llm(
-                    title=scene.title or "",
-                    summary=scene.outline_summary or "",
-                    layout_type=scene.layout_type or "text_only",
-                )
-                norm_content = normalize_slide_content(scene.layout_type or "text_only", result["slide_content_json"])
                 try:
-                    current = json.loads(scene.slide_content_json) if scene.slide_content_json else {}
-                except Exception:
-                    current = {}
-                merged = {**current, **norm_content}
-                merged.setdefault("title", scene.title or current.get("title", ""))
-                if current.get("summary"):
-                    merged.setdefault("summary", current["summary"])
-                scene.slide_content_json = json.dumps(merged, ensure_ascii=False)
-                if result["narration_text"]:
-                    scene.narration_text = result["narration_text"]
+                    result = await generate_scene_content_llm(
+                        title=scene.title or "",
+                        summary=scene.outline_summary or "",
+                        layout_type=scene.layout_type or "text_only",
+                        aspect=aspect,
+                        avoid=previous,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    # 1 シーンの失敗で 20 シーン分の生成を捨てない。
+                    # 失敗したシーンは元の内容のまま残し、最後にまとめて知らせる。
+                    print(f"[bulk] シーン {scene.index} の生成に失敗: {e}")
+                    failed.append(f"{scene.index}. {scene.title or '無題'}")
+                    bulk_content_job_store[job_id]["done"] = idx + 1
+                    continue
+
+                await apply_generated_content(scene, result)
+                previous = (result["layout"],)
                 await db.commit()
                 bulk_content_job_store[job_id]["done"] = idx + 1
 
             bulk_content_job_store[job_id]["status"] = "completed"
+            bulk_content_job_store[job_id]["failed"] = failed
+            if failed:
+                bulk_content_job_store[job_id]["error"] = (
+                    f"{len(failed)} 件のシーンで生成に失敗しました（他は完了しています）: "
+                    + " / ".join(failed[:5]) + (" ほか" if len(failed) > 5 else "")
+                )
         except Exception as e:
             bulk_content_job_store[job_id] = {"status": "error", "error": str(e)}
 

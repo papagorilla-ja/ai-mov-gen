@@ -1,0 +1,20 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="plan-row" data-count="{{ plans|length }}">
+    {% for plan in plans %}
+    {# 最後の列を推奨扱いにする。比較表は右へ行くほど上位、という並びが通例のため。 #}
+    <div class="clip plan-card{{ ' is-primary' if loop.last else '' }}"
+         data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      <div class="plan-name">{{ plan['name'] }}</div>
+      <dl class="plan-lines">
+        {% for line in plan['lines'] %}
+        <div class="plan-line">
+          <dt>{{ line['label'] }}</dt>
+          <dd>{{ line['value'] }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </div>
+    {% endfor %}
+  </div>
+</div>

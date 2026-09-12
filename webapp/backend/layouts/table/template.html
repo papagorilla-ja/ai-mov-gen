@@ -1,0 +1,15 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <table class="data-table" data-count="{{ count }}">
+    {% if c['headers'] %}
+    <thead><tr>{% for h in c['headers'] %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    {% endif %}
+    <tbody>
+      {% for row in c['rows'] %}
+      <tr class="clip" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+        {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

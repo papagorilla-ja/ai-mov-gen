@@ -1,0 +1,21 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="axis-row">
+    <div class="clip axis-end left" data-seq="spread" data-seq-index="0" data-anim="slide-right">
+      {% if c['left']['title'] %}<div class="axis-title">{{ c['left']['title'] }}</div>{% endif %}
+      <p class="axis-text">{{ c['left']['text'] }}</p>
+    </div>
+    <div class="clip axis-end right" data-seq="spread" data-seq-index="1" data-anim="slide-left">
+      {% if c['right']['title'] %}<div class="axis-title">{{ c['right']['title'] }}</div>{% endif %}
+      <p class="axis-text">{{ c['right']['text'] }}</p>
+    </div>
+  </div>
+  {# 軸は 2 つの端をつなぐ帯。両端が対等であることを、色の連続で示す。 #}
+  <div class="clip axis-bar" data-seq="head" data-seq-offset="0.4" data-anim="scale-x">
+    <span class="axis-cap left"></span>
+    <span class="axis-cap right"></span>
+  </div>
+  {% if c['verdict'] %}
+  <div class="clip layout-verdict" data-seq="tail" data-anim="rise">{{ c['verdict'] }}</div>
+  {% endif %}
+</div>

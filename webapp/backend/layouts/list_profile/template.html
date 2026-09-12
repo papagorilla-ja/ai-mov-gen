@@ -1,0 +1,16 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="profile-row" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <div class="clip profile-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+      {# 顔写真は持たない型なので、丸い枠にアイコンを置いて「人」の位置を示す。
+         空の丸を出すと写真の読み込み失敗に見えるため、必ず何かを入れる。 #}
+      <div class="profile-avatar">
+        {% if it['icon'] and icon(it['icon']) %}{{ icon(it['icon']) }}{% else %}{{ icon('人') }}{% endif %}
+      </div>
+      {% if it['label'] %}<div class="profile-name">{{ it['label'] }}</div>{% endif %}
+      {% if it['text'] %}<p class="profile-role">{{ it['text'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

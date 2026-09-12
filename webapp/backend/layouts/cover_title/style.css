@@ -1,0 +1,27 @@
+/* 表紙は左下に寄せる。中央ぞろえの章扉（section_header）と形で区別し、
+   「表紙 → 章扉」の切り替わりが一目で分かるようにする。 */
+.slide.slide-layout-cover_title { justify-content: flex-end; padding-bottom: calc(140px * var(--gap-scale)); }
+.cover-frame { max-width: 1400px; }
+.cover-eyebrow {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-sub); letter-spacing: 3px;
+  color: var(--color-accent);
+  margin-bottom: calc(20px * var(--gap-scale));
+}
+.cover-title {
+  font-family: var(--font-heading);
+  font-size: calc(5.6rem * var(--ts));
+  font-weight: 800; line-height: 1.15; margin: 0;
+  background: linear-gradient(120deg, var(--title-grad-from) 20%, var(--section-grad-to) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cover-rule {
+  width: 220px; height: 6px; border-radius: 3px;
+  margin: calc(34px * var(--gap-scale)) 0;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+}
+.cover-subtitle {
+  font-size: calc(1.9rem * var(--ts)); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0; max-width: 1100px;
+}

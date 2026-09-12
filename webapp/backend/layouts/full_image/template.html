@@ -1,0 +1,12 @@
+{% set img = c['images'][0] if c['images'] else none %}
+{% if img and img['src'] %}
+<img class="clip full-screen-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.4" data-anim="blur-in">
+{% else %}
+<div class="clip full-screen-image full-screen-image--placeholder" data-seq="head" data-seq-offset="-0.4" data-anim="fade"></div>
+{% endif %}
+{% if c['title'] %}
+<h1 class="clip image-overlay-title" data-seq="head" data-seq-offset="0.5" data-anim="rise">{{ c['title'] }}</h1>
+{% endif %}
+{% if c['body'] %}
+<p class="clip image-overlay-body" data-seq="head" data-seq-offset="0.75" data-anim="rise">{{ c['body'] }}</p>
+{% endif %}

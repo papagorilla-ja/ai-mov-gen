@@ -1,0 +1,10 @@
+<div class="cover-frame">
+  {% if c['eyebrow'] %}
+  <div class="clip cover-eyebrow" data-seq="head" data-anim="fade">{{ c['eyebrow'] }}</div>
+  {% endif %}
+  <h1 class="clip cover-title" data-seq="head" data-seq-offset="0.2" data-anim="rise">{{ c['title'] }}</h1>
+  <div class="clip cover-rule" data-seq="head" data-seq-offset="0.45" data-anim="scale-x"></div>
+  {% if c['subtitle'] %}
+  <p class="clip cover-subtitle" data-seq="head" data-seq-offset="0.6" data-anim="fade">{{ c['subtitle'] }}</p>
+  {% endif %}
+</div>

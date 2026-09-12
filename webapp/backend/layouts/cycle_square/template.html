@@ -1,0 +1,28 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  {# 2×2 に置き、4 辺に沿って時計回りの矢印を回す。
+     角度の計算が要らないので、円型サイクルより文字の収まりが安定する。 #}
+  <div class="sq-cycle" data-count="{{ count }}">
+    {% for nd in c['nodes'][:4] %}
+    <div class="clip sq-node pos-{{ loop.index }}"
+         data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+      <div class="sq-mark">
+        {% if nd['icon'] and icon(nd['icon']) %}{{ icon(nd['icon']) }}
+        {% else %}<span>{{ loop.index }}</span>{% endif %}
+      </div>
+      {% if nd['label'] %}<div class="sq-label">{{ nd['label'] }}</div>{% endif %}
+      {% if nd['text'] %}<p class="sq-text">{{ nd['text'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+
+    {% for side in ['top', 'right', 'bottom', 'left'] %}
+    <div class="sq-arrow-slot {{ side }}">
+      <svg class="clip sq-arrow" viewBox="0 0 40 20"
+           data-seq="spread" data-seq-index="{{ loop.index0 }}" data-seq-offset="0.2" data-anim="draw-right">
+        <path class="dg-arrow" d="M3 10h30"/>
+        <path class="dg-arrow" d="M26 3l7 7-7 7"/>
+      </svg>
+    </div>
+    {% endfor %}
+  </div>
+</div>

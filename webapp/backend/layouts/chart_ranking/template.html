@@ -1,0 +1,19 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="rank-list" data-count="{{ rows|length }}">
+    {% for r in rows %}
+    <div class="clip rank-row{{ ' is-top' if loop.first else '' }}"
+         data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <div class="rank-no">{{ r['rank'] }}</div>
+      <div class="rank-main">
+        <div class="rank-head">
+          <span class="rank-label">{{ r['label'] }}</span>
+          <span class="rank-value">{{ r['value'] }}<small>{{ unit }}</small></span>
+        </div>
+        {# 棒の長さは最大値に対する割合。最小でも 4% 残して、0 件の項目が消えないようにする。 #}
+        <div class="rank-track"><div class="rank-bar" style="width: {{ r['pct'] }}%"></div></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

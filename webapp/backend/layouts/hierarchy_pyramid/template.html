@@ -1,0 +1,27 @@
+{# 位置決めの wrapper（.diagram-node）と、アニメーションする要素（.clip）を分ける。
+   GSAP は transform を丸ごと書き換えるため、CSS の translate(-50%,-50%) が
+   載った要素をそのまま animate すると、中央寄せが消えて図形からずれた場所へ飛ぶ。 #}
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage pyramid-stage" data-count="{{ count }}">
+    {# 背景は塗りだけの台形。preserveAspectRatio="none" で箱に合わせて引き伸ばす。 #}
+    <svg class="diagram" viewBox="{{ viewbox }}" preserveAspectRatio="none">
+      {% for b in bands %}
+      <polygon class="dg-fill" points="{{ b['points'] }}" style="--dg-alpha: {{ b['alpha'] }}"></polygon>
+      {% endfor %}
+    </svg>
+    {# rows は prepare が組み立てた「root ＋ children」。
+       登場は下の段から。土台から積み上がる動きにする。 #}
+    {% for it in rows %}
+    <div class="diagram-node pyramid-node"
+         style="top: {{ bands[loop.index0]['top_pct'] }}%; left: 50%;
+                width: {{ bands[loop.index0]['width_pct'] }}%">
+      <div class="clip pyramid-body"
+           data-seq="spread" data-seq-index="{{ rows|length - loop.index }}" data-anim="pop">
+        {% if it['label'] %}<div class="pyramid-label">{{ it['label'] }}</div>{% endif %}
+        {% if it['text'] %}<p class="pyramid-text">{{ it['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

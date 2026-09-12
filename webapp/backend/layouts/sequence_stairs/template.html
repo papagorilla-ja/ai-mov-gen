@@ -1,0 +1,18 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  {# 段の高さを (i+1)/n で決め、下端をそろえて置くと階段になる。
+     高さは Jinja で算出してインラインに書く。CSS には段数が分からないため。 #}
+  <div class="stairs" data-count="{{ count }}">
+    {% for st in c['steps'] %}
+    <div class="clip stair-step" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+         data-anim="grow-bar"
+         style="height: {{ ((loop.index / count) * 100)|round(1) }}%">
+      <div class="stair-cap">
+        <div class="stair-num">{{ loop.index }}</div>
+        {% if st['label'] %}<div class="stair-label">{{ st['label'] }}</div>{% endif %}
+        {% if st['text'] %}<p class="stair-text">{{ st['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,26 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="vflow" data-count="{{ count }}">
+    {% for st in c['steps'] %}
+    {% if not loop.first %}
+    {# 矢印は指す先のステップと同じスロットに置き、わずかに先出しする #}
+    <svg class="clip vflow-arrow" viewBox="0 0 24 40" data-seq="spread"
+         data-seq-index="{{ loop.index0 }}" data-seq-offset="-0.25" data-anim="draw-down">
+      <path class="dg-arrow" d="M12 3v30"/>
+      <path class="dg-arrow" d="M5 26l7 7 7-7"/>
+    </svg>
+    {% endif %}
+    <div class="clip vflow-step" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <div class="vflow-mark">
+        {% if st['icon'] and icon(st['icon']) %}{{ icon(st['icon']) }}
+        {% else %}<span>{{ loop.index }}</span>{% endif %}
+      </div>
+      <div class="vflow-body">
+        {% if st['label'] %}<div class="vflow-label">{{ st['label'] }}</div>{% endif %}
+        {% if st['text'] %}<p class="vflow-text">{{ st['text'] }}</p>{% endif %}
+      </div>
+      <div class="vflow-index">{{ '%02d' % loop.index }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,18 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="scale-row" data-count="{{ items|length }}">
+    {% for it in items %}
+    <div class="scale-cell">
+      <div class="scale-circle-wrap">
+        {# 直径は値の平方根に比例。面積が値に比例するので、見た目の大小が量と一致する。 #}
+        <div class="clip scale-circle" style="--d: {{ it['ratio'] }}"
+             data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="expand-circle">
+          <span class="scale-value">{{ it['value'] }}<small>{{ unit }}</small></span>
+        </div>
+      </div>
+      <div class="clip scale-label" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+           data-seq-offset="0.15" data-anim="fade">{{ it['label'] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

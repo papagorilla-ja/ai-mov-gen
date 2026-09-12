@@ -1,0 +1,29 @@
+.mutual-stage { min-height: calc(var(--canvas-height) * 0.56); }
+/* 幅は件数で変わる（2 件は横長の箱に大きく、3 件は正方形に収める）ので
+   テンプレート側のインラインで指定する。 */
+.mutual-body {
+  display: flex; flex-direction: column; align-items: center;
+  gap: calc(8px * var(--gap-scale));
+  text-align: center;
+  padding: calc(22px * var(--gap-scale) * var(--dens)) calc(20px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+.mutual-icon { color: var(--color-accent); display: flex; }
+.mutual-icon .layout-icon { width: calc(32px * var(--dens)); height: calc(32px * var(--dens)); }
+.mutual-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.mutual-text { font-size: var(--fs-sub); line-height: 1.5; color: var(--text-secondary); margin: 0; }
+/* 矢印は 2 点を結ぶ向き。回転を持つのは slot 側で、
+   中の svg を GSAP が animate しても向きが保たれる。 */
+.mutual-link-slot {
+  position: absolute;
+  width: 26%; height: calc(40px * var(--dens));
+  transform: translate(-50%, -50%) rotate(var(--rot));
+}
+.mutual-link { width: 100%; height: 100%; display: block; }

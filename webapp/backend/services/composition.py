@@ -6,9 +6,10 @@ from bs4 import BeautifulSoup
 from models.video import Video
 from models.scene import Scene
 from models.video_style import VideoStyle
+from layouts import _registry as layouts
+from layouts import _render, _types
 from services.design_tokens import (
     build_theme_css,
-    chart_palette,
     normalize_transition,
     stage_classes,
 )
@@ -28,549 +29,78 @@ FONT_DIR_NAME = "fonts"
 FONT_FILES = ("BIZUDPGothic-Regular.woff2", "BIZUDPGothic-Bold.woff2")
 
 
-def _parse_slide_content(scene: Scene, assets_map: dict | None = None) -> dict:
-    """slide_content_json をパースし、レイアウト分岐で使う値一式を返す。"""
-    content = {}
+def aspect_of(style) -> str:
+    """キャンバスの縦横比を "16:9" / "4:3" の文字列にする。
+
+    レイアウトはこの値で「自分が成立するか」を判断し、CSS は
+    [data-aspect="4:3"] で横並びの密度を一段詰める。
+    """
+    width = getattr(style, "canvas_width", 1920) or 1920
+    height = getattr(style, "canvas_height", 1080) or 1080
+    return "4:3" if (width / height) < 1.5 else "16:9"
+
+
+def resolve_scene(scene: Scene, assets_map: dict | None = None):
+    """シーンから (レイアウト, 正規化済みの内容, 件数) を取り出す。
+
+    DB の slide_content_json は旧キー（bullet_points / cards / left_text …）の
+    ことがあるが、_types.normalize() が読み込み時に吸収する。
+    レイアウト別の分岐はここには書かない（全て layouts/ 配下が持つ）。
+    """
+    raw: dict = {}
     if scene.slide_content_json:
         try:
-            content = json.loads(scene.slide_content_json)
+            parsed = json.loads(scene.slide_content_json)
+            if isinstance(parsed, dict):
+                raw = parsed
         except Exception:
             pass
 
-    title_text = content.get("title", scene.title or f"Scene {scene.index}")
-    body_text = content.get("body", "")
-    bullet_points = content.get("bullet_points", [])
-    if isinstance(bullet_points, str):
-        bullet_points = [bp.strip() for bp in bullet_points.split("\n") if bp.strip()]
+    spec = layouts.get(scene.layout_type) or layouts.get(layouts.FALLBACK_LAYOUT)
+    content = _types.normalize(spec.type_id, raw)
 
-    subtitle_text = content.get("subtitle", "")
-    image_src = content.get("image_src", "")
-    image_position = content.get("image_position", "right")
+    # タイトルはシーン一覧で編集される scene.title を控えとして使う。
+    # 以前は最後の手段として "Scene 03" を出していたが、内容と無関係な
+    # 文字を毎スライドに出すのは読み取りコストを増やすだけなので出さない。
+    if not content.get("title"):
+        content["title"] = scene.title or ""
 
-    if assets_map and scene.layout_type in ["full_image", "text_left_image_right"]:
-        scene_assets = assets_map.get(scene.id, [])
-        slot1_asset = next((a for a in scene_assets if a.slot == 1), None)
-        if slot1_asset and slot1_asset.file_path:
-            image_src = slot1_asset.file_path
+    # 固有の内容がまだ生成されていないシーンは、あらすじで場をつなぐ
+    _types.fill_from_summary(spec.type_id, content, scene.outline_summary or "")
 
-    gallery_assets = []
-    if assets_map and scene.layout_type == "image_gallery":
-        gallery_assets = sorted(assets_map.get(scene.id, []), key=lambda a: a.slot)
+    # 画像は media 型のレイアウトだけが内容として受け取る。
+    # それ以外のレイアウトでは、従来どおり絶対配置のアセットとして重ねる
+    # （generate_composition 側で処理する）。
+    if assets_map and spec.type_id == "media":
+        scene_assets = sorted(assets_map.get(scene.id, []), key=lambda a: a.slot)
+        from_assets = [{"src": a.file_path, "caption": ""} for a in scene_assets if a.file_path]
+        if from_assets:
+            limit = spec.capacity.max if not spec.capacity.any else len(from_assets)
+            content["images"] = from_assets[:limit]
 
-    return {
-        "content": content,
-        "title_text": title_text,
-        "body_text": body_text,
-        "bullet_points": bullet_points,
-        "subtitle_text": subtitle_text,
-        "image_src": image_src,
-        "image_position": image_position if image_position in ("left", "right") else "right",
-        "gallery_assets": gallery_assets,
-        "summary": content.get("summary", ""),
-    }
+    return spec, content, _types.count_of(spec.type_id, content)
 
 
-def _body_card(soup, text: str, elem_start: float, elem_duration: float):
-    """本文テキストをカードで見せる共通ブロック（フォールバックにも使う）。"""
-    if not text:
-        return None
-    wrap = soup.new_tag("div", attrs={
-        "class": "clip body-card",
-        "data-start": f"{elem_start:.2f}",
-        "data-duration": f"{elem_duration:.2f}",
-    })
-    p = soup.new_tag("p", attrs={"class": "body-text"})
-    p.string = text
-    wrap.append(p)
-    return wrap
-
-
-def _build_slide_content(soup, scene: Scene, parsed: dict, elem_start: float, elem_duration: float, style: VideoStyle | None = None) -> list:
-    """レイアウト種別に応じた HTML タグ群を構築してリストで返す。"""
-    content = parsed["content"]
-    title_text = parsed["title_text"]
-    body_text = parsed["body_text"]
-    bullet_points = parsed["bullet_points"]
-    subtitle_text = parsed["subtitle_text"]
-    image_src = parsed["image_src"]
-    image_position = parsed.get("image_position", "right")
-    gallery_assets = parsed.get("gallery_assets", [])
-    elems = []
-
-    canvas_w = style.canvas_width if style else 1920
-    canvas_h = style.canvas_height if style else 1080
-
-    # あらすじ（FIX-10 のアウトライン由来）。固有コンテンツが未生成のときの保険に使う。
-    fallback_text = (
-        parsed.get("summary")
-        or content.get("summary")
-        or body_text
-        or (scene.outline_summary or "")
+def render_scene_fragment(
+    scene: Scene,
+    style: VideoStyle | None = None,
+    assets_map: dict | None = None,
+    *,
+    scene_start: float = 0.0,
+    scene_duration: float | None = None,
+):
+    """1 シーン分の HTML 断片を (レイアウト, HTML) で返す。"""
+    spec, content, count = resolve_scene(scene, assets_map)
+    duration = scene_duration if scene_duration is not None else (scene.data_duration or 10.0)
+    html = _render.render(
+        spec, content,
+        scene_start=scene_start,
+        scene_duration=duration,
+        aspect=aspect_of(style),
+        count=count,
+        extra={"style": style, "scene_index": scene.index},
     )
-    STAGGER = 0.25   # 要素ごとの登場間隔（秒）
-
-    def _head(eyebrow_text: str):
-        """アイブロウ + タイトル を elems に積む共通処理。"""
-        eb = soup.new_tag("div", attrs={
-            "class": "clip slide-eyebrow",
-            "data-start": f"{elem_start:.2f}",
-            "data-duration": f"{elem_duration:.2f}",
-        })
-        eb.string = eyebrow_text
-        elems.append(eb)
-        h1 = soup.new_tag("h1", attrs={
-            "class": "clip slide-title",
-            "data-start": f"{(elem_start + 0.15):.2f}",
-            "data-duration": f"{(elem_duration - 0.15):.2f}",
-        })
-        h1.string = title_text
-        elems.append(h1)
-
-    if scene.layout_type == "section_header":
-        orb1 = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        orb2 = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-2"})
-        elems.append(orb1)
-        elems.append(orb2)
-
-        h1 = soup.new_tag("h1", attrs={
-            "class": "clip section-title",
-            "data-start": f"{elem_start:.2f}",
-            "data-duration": f"{elem_duration:.2f}"
-        })
-        h1.string = title_text
-        elems.append(h1)
-
-        rule = soup.new_tag("div", attrs={
-            "class": "clip section-rule",
-            "data-start": f"{(elem_start + 0.2):.2f}",
-            "data-duration": f"{(elem_duration - 0.2):.2f}"
-        })
-        elems.append(rule)
-
-        sub = subtitle_text or fallback_text
-        if sub:
-            p = soup.new_tag("p", attrs={
-                "class": "clip section-subtitle",
-                "data-start": f"{(elem_start + 0.4):.2f}",
-                "data-duration": f"{(elem_duration - 0.4):.2f}"
-            })
-            p.string = sub
-            elems.append(p)
-
-    elif scene.layout_type == "text_left_image_right":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        container_class = "two-col-container grid-2col"
-        if image_position == "left":
-            container_class += " reverse"
-        container = soup.new_tag("div", attrs={
-            "class": container_class,
-        })
-
-        left_col = soup.new_tag("div", attrs={"class": "col-left"})
-        eb = soup.new_tag("div", attrs={
-            "class": "clip slide-eyebrow",
-            "data-start": f"{elem_start:.2f}",
-            "data-duration": f"{elem_duration:.2f}",
-        })
-        eb.string = f"Scene {scene.index:02d}"
-        left_col.append(eb)
-
-        h1 = soup.new_tag("h1", attrs={
-            "class": "clip slide-title",
-            "data-start": f"{(elem_start + 0.15):.2f}",
-            "data-duration": f"{(elem_duration - 0.15):.2f}"
-        })
-        h1.string = title_text
-        left_col.append(h1)
-
-        display_text = body_text or fallback_text
-        if display_text:
-            bc = _body_card(soup, display_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                left_col.append(bc)
-        container.append(left_col)
-
-        right_col = soup.new_tag("div", attrs={"class": "col-right"})
-        if image_src:
-            img = soup.new_tag("img", attrs={
-                "class": "clip illustration",
-                "src": image_src,
-                "data-start": f"{(elem_start + 0.3):.2f}",
-                "data-duration": f"{(elem_duration - 0.3):.2f}"
-            })
-        else:
-            img = soup.new_tag("div", attrs={
-                "class": "clip illustration illustration--placeholder",
-                "data-start": f"{(elem_start + 0.3):.2f}",
-                "data-duration": f"{(elem_duration - 0.3):.2f}"
-            })
-        right_col.append(img)
-        container.append(right_col)
-        elems.append(container)
-
-    elif scene.layout_type == "full_image":
-        if image_src:
-            img = soup.new_tag("img", attrs={
-                "class": "clip full-screen-image",
-                "src": image_src,
-                "data-start": f"{elem_start:.2f}",
-                "data-duration": f"{elem_duration:.2f}"
-            })
-        else:
-            img = soup.new_tag("div", attrs={
-                "class": "clip full-screen-image full-screen-image--placeholder",
-                "data-start": f"{elem_start:.2f}",
-                "data-duration": f"{elem_duration:.2f}"
-            })
-        elems.append(img)
-        
-        if title_text:
-            h1 = soup.new_tag("h1", attrs={
-                "class": "clip image-overlay-title",
-                "data-start": f"{(elem_start + 0.5):.2f}",
-                "data-duration": f"{(elem_duration - 0.5):.2f}"
-            })
-            h1.string = title_text
-            elems.append(h1)
-
-    elif scene.layout_type == "image_gallery":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        _head(f"Scene {scene.index:02d}")
-
-        count = len(gallery_assets) or 1
-        cols = "cols-3" if count >= 3 else "cols-2"
-        grid = soup.new_tag("div", attrs={"class": f"gallery-grid {cols}"})
-        for n, asset in enumerate(gallery_assets, start=1):
-            item_start = elem_start + 0.3 + (n - 1) * 0.25
-            item_dur = max(0.1, elem_duration - (item_start - elem_start))
-            item = soup.new_tag("figure", attrs={
-                "class": "clip gallery-item",
-                "data-start": f"{item_start:.2f}",
-                "data-duration": f"{item_dur:.2f}",
-            })
-            img = soup.new_tag("img", attrs={
-                "class": "gallery-media",
-                "src": asset.file_path or "",
-            })
-            item.append(img)
-            grid.append(item)
-        elems.append(grid)
-
-        display_text = body_text or fallback_text
-        if display_text:
-            bc = _body_card(soup, display_text, elem_start + 0.3 + count * 0.25, elem_duration - (0.3 + count * 0.25))
-            if bc:
-                elems.append(bc)
-
-    elif scene.layout_type == "bullet_list":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-2"})
-        elems.append(orb)
-
-        _head("Key Points")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        if not bullet_points and fallback_text:
-            bullet_points = [fallback_text]
-
-        if bullet_points:
-            list_wrap = soup.new_tag("div", attrs={"class": "bullet-list"})
-            for n, bp in enumerate(bullet_points, start=1):
-                item_start = elem_start + 0.3 + (n - 1) * STAGGER
-                item_dur = max(0.1, elem_duration - (item_start - elem_start))
-                item = soup.new_tag("div", attrs={
-                    "class": "clip bullet-item",
-                    "data-start": f"{item_start:.2f}",
-                    "data-duration": f"{item_dur:.2f}"
-                })
-                num = soup.new_tag("div", attrs={"class": "bullet-num"})
-                num.string = str(n)
-                cont = soup.new_tag("div", attrs={"class": "bullet-content"})
-                p = soup.new_tag("p")
-                p.string = bp
-                cont.append(p)
-                item.append(num)
-                item.append(cont)
-                list_wrap.append(item)
-            area.append(list_wrap)
-        else:
-            bc = _body_card(soup, fallback_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        elems.append(area)
-
-    elif scene.layout_type == "comparison":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        _head("Comparison")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        left_text = content.get("left_text", "")
-        right_text = content.get("right_text", "")
-
-        if not left_text and not right_text:
-            bc = _body_card(soup, fallback_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        else:
-            container = soup.new_tag("div", attrs={"class": "comparison-container"})
-            cols = soup.new_tag("div", attrs={"class": "comparison-cols"})
-            
-            l_start = elem_start + 0.3
-            left_col = soup.new_tag("div", attrs={
-                "class": "clip comparison-col left",
-                "data-start": f"{l_start:.2f}",
-                "data-duration": f"{max(0.1, elem_duration - 0.3):.2f}"
-            })
-            if content.get("left_title"):
-                head = soup.new_tag("div", attrs={"class": "comparison-col-head"})
-                head.string = content["left_title"]
-                left_col.append(head)
-
-            left_p = soup.new_tag("p")
-            left_p.string = left_text
-            left_col.append(left_p)
-            cols.append(left_col)
-
-            vs_start = elem_start + 0.45
-            vs_badge = soup.new_tag("div", attrs={
-                "class": "clip comparison-vs",
-                "data-start": f"{vs_start:.2f}",
-                "data-duration": f"{max(0.1, elem_duration - 0.45):.2f}"
-            })
-            vs_badge.string = "VS"
-            cols.append(vs_badge)
-
-            r_start = elem_start + 0.6
-            right_col = soup.new_tag("div", attrs={
-                "class": "clip comparison-col right",
-                "data-start": f"{r_start:.2f}",
-                "data-duration": f"{max(0.1, elem_duration - 0.6):.2f}"
-            })
-            if content.get("right_title"):
-                head = soup.new_tag("div", attrs={"class": "comparison-col-head"})
-                head.string = content["right_title"]
-                right_col.append(head)
-
-            right_p = soup.new_tag("p")
-            right_p.string = right_text
-            right_col.append(right_p)
-            cols.append(right_col)
-
-            container.append(cols)
-            area.append(container)
-
-        elems.append(area)
-
-    elif scene.layout_type == "chat_dialog":
-        _head("Discussion")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        container = soup.new_tag("div", attrs={"class": "dialog-container"})
-
-        lines = content.get("lines", [])
-        if not lines and fallback_text:
-            lines = [{"speaker": "A", "text": fallback_text}]
-
-        for n, line in enumerate(lines):
-            speaker = line.get("speaker", "A").upper()
-            text = line.get("text", "")
-            line_start = elem_start + 0.3 + n * STAGGER
-            line_dur = max(0.1, elem_duration - (line_start - elem_start))
-            line_class = "clip dialog-line speaker-a" if speaker == "A" else "clip dialog-line speaker-b"
-            line_div = soup.new_tag("div", attrs={
-                "class": line_class,
-                "data-start": f"{line_start:.2f}",
-                "data-duration": f"{line_dur:.2f}"
-            })
-            bubble = soup.new_tag("div", attrs={"class": "bubble"})
-            bubble.string = text
-            line_div.append(bubble)
-            container.append(line_div)
-
-        area.append(container)
-        elems.append(area)
-
-    elif scene.layout_type == "card_panel":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        _head("Topics")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        cards = content.get("cards", [])
-
-        if not cards:
-            bc = _body_card(soup, fallback_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        else:
-            grid_class = "card-grid cols-3" if len(cards) >= 3 else "card-grid cols-2"
-            grid = soup.new_tag("div", attrs={"class": grid_class})
-            for n, c in enumerate(cards, start=1):
-                card_start = elem_start + 0.3 + (n - 1) * STAGGER
-                card_dur = max(0.1, elem_duration - (card_start - elem_start))
-                card = soup.new_tag("div", attrs={
-                    "class": "clip info-card",
-                    "data-start": f"{card_start:.2f}",
-                    "data-duration": f"{card_dur:.2f}"
-                })
-                idx_el = soup.new_tag("div", attrs={"class": "info-card-index"})
-                idx_el.string = f"{n:02d}"
-                card.append(idx_el)
-
-                if c.get("title"):
-                    ct = soup.new_tag("div", attrs={"class": "info-card-title"})
-                    ct.string = c["title"]
-                    card.append(ct)
-                if c.get("text"):
-                    cp = soup.new_tag("p", attrs={"class": "info-card-text"})
-                    cp.string = c["text"]
-                    card.append(cp)
-                grid.append(card)
-            area.append(grid)
-
-        elems.append(area)
-
-    elif scene.layout_type == "table":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-2"})
-        elems.append(orb)
-
-        _head("Data")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        headers = content.get("headers", [])
-        rows = content.get("rows", [])
-
-        if not rows:
-            bc = _body_card(soup, fallback_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        else:
-            table = soup.new_tag("table", attrs={"class": "data-table"})
-            if headers:
-                thead = soup.new_tag("thead")
-                tr = soup.new_tag("tr")
-                for h in headers:
-                    th = soup.new_tag("th")
-                    th.string = str(h)
-                    tr.append(th)
-                thead.append(tr)
-                table.append(thead)
-
-            tbody = soup.new_tag("tbody")
-            for n, row in enumerate(rows):
-                row_start = elem_start + 0.3 + n * STAGGER
-                row_dur = max(0.1, elem_duration - (row_start - elem_start))
-                tr = soup.new_tag("tr", attrs={
-                    "class": "clip",
-                    "data-start": f"{row_start:.2f}",
-                    "data-duration": f"{row_dur:.2f}"
-                })
-                for cell in row:
-                    td = soup.new_tag("td")
-                    td.string = str(cell)
-                    tr.append(td)
-                tbody.append(tr)
-            table.append(tbody)
-            area.append(table)
-
-        elems.append(area)
-
-    elif scene.layout_type == "graph_chart":
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        _head("Chart")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        chart_cfg = content.get("chart", {})
-        values = chart_cfg.get("values", [])
-
-        if not values:
-            bc = _body_card(soup, fallback_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        else:
-            chart_type = chart_cfg.get("type", "bar")
-            labels = chart_cfg.get("labels", [])
-            unit = chart_cfg.get("unit", "")
-
-            canvas_id = f"chart-{scene.index}"
-            chart_w = max(400, canvas_w - 240)
-            chart_h = max(300, canvas_h - 340)
-
-            wrap = soup.new_tag("div", attrs={
-                "class": "clip chart-canvas-wrap",
-                "data-start": f"{(elem_start + 0.3):.2f}",
-                "data-duration": f"{(elem_duration - 0.3):.2f}"
-            })
-            canvas = soup.new_tag("canvas", attrs={
-                "id": canvas_id,
-                "width": str(chart_w),
-                "height": str(chart_h),
-            })
-            wrap.append(canvas)
-            area.append(wrap)
-
-            # canvas は CSS 変数を解釈できないため、確定した色を JS へ埋め込む。
-            # グラフだけスライドの配色から浮くのを防ぐ。
-            palette = chart_palette(style)
-            axis_js = (
-                "{ ticks: { color: %s, font: { size: 14 } }, grid: { color: %s } }"
-                % (json.dumps(palette["tick"]), json.dumps(palette["grid"]))
-            )
-            scales_js = "{}" if chart_type in ("pie", "doughnut") else f"{{ x: {axis_js}, y: {axis_js} }}"
-
-            chart_js = f"""
-            (function() {{
-              var ctx = document.getElementById('{canvas_id}').getContext('2d');
-              new Chart(ctx, {{
-                type: {json.dumps(chart_type)},
-                data: {{
-                  labels: {json.dumps(labels, ensure_ascii=False)},
-                  datasets: [{{
-                    label: {json.dumps(unit, ensure_ascii=False)},
-                    data: {json.dumps(values)},
-                    backgroundColor: {json.dumps(palette["series"])},
-                    borderColor: {json.dumps(palette["border"])},
-                    borderWidth: 2
-                  }}]
-                }},
-                options: {{
-                  responsive: false,
-                  animation: false,
-                  plugins: {{ legend: {{ labels: {{ color: {json.dumps(palette["legend"])}, font: {{ size: 16 }} }} }} }},
-                  scales: {scales_js}
-                }}
-              }});
-            }})();
-            """
-            script_tag = soup.new_tag("script")
-            script_tag.string = chart_js
-            elems.append(script_tag)
-
-        elems.append(area)
-
-    else:
-        orb = soup.new_tag("div", attrs={"class": "deco-orb deco-orb-1"})
-        elems.append(orb)
-
-        _head(f"Scene {scene.index:02d}")
-
-        area = soup.new_tag("div", attrs={"class": "slide-body-area"})
-        display_text = body_text or fallback_text
-        if display_text:
-            bc = _body_card(soup, display_text, elem_start + 0.3, elem_duration - 0.3)
-            if bc:
-                area.append(bc)
-        elems.append(area)
-
-    return elems
+    return spec, html
 
 
 def render_scene_preview_html(scene: Scene, style: VideoStyle | None = None) -> str:
@@ -578,15 +108,103 @@ def render_scene_preview_html(scene: Scene, style: VideoStyle | None = None) -> 
     custom_html が設定されていればそれを、なければ自動生成結果を返す。"""
     if scene.custom_html:
         return scene.custom_html
-    soup = BeautifulSoup("", "html.parser")
-    parsed = _parse_slide_content(scene)
-    elem_duration = max(0.1, (scene.data_duration or 10.0) - 1.0)
-    elem_start = 0.5
-    elems = _build_slide_content(soup, scene, parsed, elem_start, elem_duration, style)
-    frag = soup.new_tag("div")
-    for el in elems:
-        frag.append(el)
-    return "".join(str(c) for c in frag.contents)
+    _, html = render_scene_fragment(scene, style, scene_start=0.0)
+    return html
+
+
+def render_layout_sample_html(layout_id: str, style: VideoStyle | None = None) -> str:
+    """レイアウト選択ギャラリーのサムネイル用に、サンプル内容で描画する。
+
+    サムネイル画像を手で用意せず、実際のレイアウトビルダーに流して実物を作る。
+    こうしておけば、実装を直したときにサムネイルだけ古いまま、という
+    ずれが原理的に起きない。
+    """
+    spec = layouts.get(layout_id)
+    if not spec:
+        return ""
+    content = _types.normalize(spec.type_id, spec.sample_content())
+    return _render.render(
+        spec, content,
+        scene_start=0.0, scene_duration=10.0,
+        aspect=aspect_of(style),
+        count=_types.count_of(spec.type_id, content),
+        extra={"style": style, "scene_index": 0},
+    )
+
+
+# サムネイル用の文書で参照するフォントの配信先（main.py の StaticFiles マウントと対）。
+TEMPLATE_ASSET_URL = "/template-assets"
+
+
+def render_layout_sample_document(layout_id: str, style: VideoStyle | None = None,
+                                  template_dir: Path | None = None) -> str:
+    """レイアウトのサムネイルを iframe に流し込むための、完結した HTML 文書。
+
+    スライドの CSS は :root や #stage を書き換える強い指定を含むため、
+    編集画面へ直接埋め込むと画面全体の見た目を壊す。iframe に閉じ込める。
+    """
+    spec = layouts.get(layout_id)
+    if not spec:
+        return ""
+
+    template_dir = template_dir or Path("/app/templates/blank")
+    base_css = ""
+    css_path = template_dir / "style.css"
+    if css_path.exists():
+        base_css = css_path.read_text(encoding="utf-8")
+
+    style = style or VideoStyle()
+    width = getattr(style, "canvas_width", None) or 1920
+    height = getattr(style, "canvas_height", None) or 1080
+    orbs = "".join(f'<div class="deco-orb deco-orb-{i + 1}"></div>' for i in range(spec.orbs))
+
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<style>
+{base_css}
+{layouts.collect_css([spec.id])}
+{build_theme_css(style, canvas_width=width, canvas_height=height)}
+/* ---- サムネイル専用 ----
+   GSAP を動かさないので、全要素を表示済みの状態に固定する。
+   #stage を箱の幅に合わせて縮小し、原寸のレイアウトをそのまま縮めて見せる。 */
+@font-face {{ font-family: 'BIZ UDPGothic'; font-weight: 400;
+  src: url('{TEMPLATE_ASSET_URL}/fonts/BIZUDPGothic-Regular.woff2') format('woff2'); }}
+@font-face {{ font-family: 'BIZ UDPGothic'; font-weight: 700;
+  src: url('{TEMPLATE_ASSET_URL}/fonts/BIZUDPGothic-Bold.woff2') format('woff2'); }}
+html, body {{ margin: 0; padding: 0; overflow: hidden; background: var(--bg-main); }}
+#stage {{
+  position: absolute; left: 0; top: 0;
+  width: {width}px; height: {height}px;
+  transform: scale(var(--thumb-scale, 1));
+  transform-origin: top left;
+  overflow: hidden;
+}}
+.slide {{ opacity: 1 !important; pointer-events: none; }}
+.clip {{ opacity: 1 !important; }}
+</style>
+<!-- グラフのレイアウトは Chart.js で canvas に描く。読み込まないと
+     サムネイルだけ「グラフが消えた空のスライド」になる。 -->
+<script src="{TEMPLATE_ASSET_URL}/chart.min.js"></script>
+</head><body>
+<div id="stage" class="{stage_classes(style)}" data-aspect="{aspect_of(style)}">
+  <div class="stage-bg-motif"></div><div class="stage-bg-glow"></div>
+  <div class="slide slide-layout-{spec.id}" style="--veil: {spec.veil}">
+    {orbs}{render_layout_sample_html(spec.id, style)}
+  </div>
+</div>
+<script>
+// 原寸 {width}px のスライドを、埋め込み先の幅に合わせて縮小する。
+// CSS だけでは書けない。calc(100vw / {width}) は「長さ ÷ 数値 = 長さ」になり、
+// 無単位の数値を要求する scale() では無効な値として無視されてしまう。
+(function () {{
+  function fit() {{
+    document.documentElement.style.setProperty(
+      '--thumb-scale', (document.documentElement.clientWidth / {width}).toFixed(4));
+  }}
+  fit();
+  window.addEventListener('resize', fit);
+}})();
+</script>
+</body></html>"""
 
 
 def _validate_scene_html_fragment(html: str) -> tuple[bool, str]:
@@ -752,6 +370,8 @@ def generate_composition(
 
     cumulative_start = 0.0
     scene_custom_css_blocks = []
+    # この動画で実際に使われたレイアウト。CSS はここにあるものだけ連結する。
+    used_layouts: list[str] = []
 
     for scene in scenes:
         audio_dur = scene.narration_audio_duration if scene.narration_audio_duration is not None else 10.0
@@ -761,16 +381,22 @@ def generate_composition(
         scene.data_start = data_start
         scene.data_duration = data_duration
 
-        slide_class = f"slide slide-layout-{scene.layout_type} clip"
+        spec = layouts.get(scene.layout_type) or layouts.get(layouts.FALLBACK_LAYOUT)
+        used_layouts.append(spec.id)
+
         slide_div = soup.new_tag("div", attrs={
             "id": f"scene-{scene.id}",
-            "class": slide_class,
+            "class": f"slide slide-layout-{spec.id} clip",
             "data-start": f"{data_start:.2f}",
-            "data-duration": f"{data_duration:.2f}"
+            "data-duration": f"{data_duration:.2f}",
+            # 背景モチーフをどれだけ覆うかはレイアウトごとに違う。
+            # CSS に一覧を持たず、レジストリの値をそのまま書き出す。
+            "style": f"--veil: {spec.veil}",
         })
 
-        elem_duration = max(0.1, data_duration - 1.0)
-        elem_start = data_start + 0.5
+        # 背景の装飾オーブ。枚数はレイアウトが宣言する（全面画像は 0）。
+        for i in range(spec.orbs):
+            slide_div.append(soup.new_tag("div", attrs={"class": f"deco-orb deco-orb-{i + 1}"}))
 
         if scene.custom_html:
             # AI/手動編集済みのカスタム HTML を優先使用（自動生成をスキップ）
@@ -778,20 +404,20 @@ def generate_composition(
             for child in list(custom_frag.contents):
                 slide_div.append(child)
         else:
-            parsed = _parse_slide_content(scene, assets_map)
-            for el in _build_slide_content(soup, scene, parsed, elem_start, elem_duration, style):
-                slide_div.append(el)
+            _, fragment = render_scene_fragment(
+                scene, style, assets_map,
+                scene_start=data_start, scene_duration=data_duration,
+            )
+            for child in list(BeautifulSoup(fragment, "html.parser").contents):
+                slide_div.append(child)
 
         if scene.custom_css:
             scene_custom_css_blocks.append(scene.custom_css)
 
-        if assets_map and scene.layout_type != "image_gallery":
-            # image_gallery は _build_slide_content 側で全スロットをグリッド描画済みのため対象外
-            scene_assets = assets_map.get(scene.id, [])
-            for asset in sorted(scene_assets, key=lambda a: a.slot):
-                # 主画像としてスロット1を消費したレイアウトでは、個別の絶対配置描画をスキップ
-                if asset.slot == 1 and scene.layout_type in ["full_image", "text_left_image_right"]:
-                    continue
+        # media 型のレイアウトは画像を内容として受け取り済みなので重ねない。
+        # それ以外（手動アップロードの添え物）は従来どおり絶対配置で重ねる。
+        if assets_map and spec.type_id != "media":
+            for asset in sorted(assets_map.get(scene.id, []), key=lambda a: a.slot):
                 el = _asset_to_html(soup, asset, data_start, data_duration)
                 if el:
                     slide_div.append(el)
@@ -823,6 +449,9 @@ def generate_composition(
     # 切替トランジションは app.js が読む data 属性で伝える。
     stage["class"] = stage_classes(style)
     stage["data-transition"] = normalize_transition(style.transition)
+    # 横並びのレイアウトは 4:3 で一段詰める必要がある。CSS が
+    # [data-aspect="4:3"] で拾えるよう、ここで比率を書き出す。
+    stage["data-aspect"] = aspect_of(style)
     if fps:
         stage["data-fps"] = str(fps)
 
@@ -852,6 +481,11 @@ def generate_composition(
     # ユーザーのスタイル設定が一切反映されなくなる。ここは入れ替えないこと。
     css_parts = [
         base_css_content,
+        "\n/* ==========================================================================\n"
+        "   この動画で使われたレイアウトの CSS（layouts/<id>/style.css）\n"
+        "   使っていないレイアウトは出さない。生成物を読めるサイズに保つため。\n"
+        "   ========================================================================== */",
+        layouts.collect_css(used_layouts),
         "\n/* ==========================================================================\n"
         "   動画ごとのテーマ（テンプレートの既定値を上書きする。必ず末尾に置くこと）\n"
         "   ========================================================================== */",

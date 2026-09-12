@@ -110,7 +110,37 @@
     tl.set(el, { display: "none", opacity: 0, pointerEvents: "none" }, start + duration);
   }
 
-  // --- 3. Dynamic Animation Builder from HTML data-attributes ---
+  // --- 3. アニメーションの登録 ---
+  //
+  // 以前はクラス名（info-card / bullet-item / dialog-line …）で分岐していたが、
+  // レイアウトを 1 つ増やすたびにこのファイルへ if を足す必要があった。
+  // いまはレイアウト側が data-anim で「動きの語彙」を宣言し、ここは辞書を引くだけ。
+  // レイアウトを追加してもこのファイルは触らない。
+  //
+  // 語彙を増やすときは layouts/<id>/spec.py 側の宣言とここの 2 箇所だけ。
+  const ANIMS = {
+    none:            { from: {},                                            to: {} },
+    fade:            { from: {},                                            to: { duration: 0.7 } },
+    rise:            { from: { y: 30 },                                     to: { y: 0, duration: 0.8 } },
+    "slide-right":   { from: { x: -40 },                                    to: { x: 0, duration: 0.7 } },
+    "slide-left":    { from: { x: 40 },                                     to: { x: 0, duration: 0.7 } },
+    pop:             { from: { scale: 0.9 },                                to: { scale: 1, duration: 0.65, ease: "back.out(1.5)" } },
+    "scale-x":       { from: { scaleX: 0 },                                 to: { scaleX: 1, duration: 0.7, transformOrigin: "left center" } },
+    // clip-path での「伸びる」表現。パスの長さを測らずに済み、
+    // 要素が CSS で回転していても、その向きに沿って伸びる。
+    "draw-right":    { from: { clipPath: "inset(0 100% 0 0)" },             to: { clipPath: "inset(0 0% 0 0)", duration: 0.6 } },
+    "draw-down":     { from: { clipPath: "inset(0 0 100% 0)" },             to: { clipPath: "inset(0 0 0% 0)", duration: 0.6 } },
+    "expand-circle": { from: { scale: 0.6 },                                to: { scale: 1, duration: 0.8, ease: "power3.out" } },
+    "grow-bar":      { from: { scaleY: 0 },                                 to: { scaleY: 1, duration: 0.7, transformOrigin: "center bottom" } },
+    "blur-in":       { from: { filter: "blur(14px)", scale: 1.04 },         to: { filter: "blur(0px)", scale: 1, duration: 0.9 } },
+    flip:            { from: { rotationY: -70 },                            to: { rotationY: 0, duration: 0.7 } },
+  };
+  const DEFAULT_ANIM = "rise";
+  // 退場は透明度だけにしている。位置や拡大を触ると、CSS 側で
+  // transform を持つ要素（図解のノードや回転した矢印）と取り合いになり、
+  // 最後の 0.4 秒だけ図が崩れる、という分かりにくい壊れ方をするため。
+  const EXIT_DURATION = 0.4;
+
   const clips = document.querySelectorAll(".clip");
 
   // Keep track of slide start/duration for navigation and stats
@@ -119,7 +149,7 @@
   clips.forEach((el) => {
     const start = parseFloat(el.getAttribute("data-start"));
     const duration = parseFloat(el.getAttribute("data-duration"));
-    
+
     if (isNaN(start) || isNaN(duration)) return;
 
     if (el.classList.contains("slide")) {
@@ -128,11 +158,11 @@
 
       // Record slide details for preview controls
       const indexAttr = el.getAttribute("id") || `slide-${slides.length + 1}`;
-      const badge = el.querySelector(".slide-badge")?.textContent || `Section`;
-      const title = el.querySelector(".slide-title")?.textContent || 
-                    el.querySelector(".section-huge-title")?.textContent || 
+      const title = el.querySelector(".slide-title")?.textContent ||
+                    el.querySelector(".section-title")?.textContent ||
                     "Untitled Slide";
-      
+      const badge = el.querySelector(".slide-eyebrow")?.textContent || "Section";
+
       slides.push({
         id: indexAttr,
         index: slides.length + 1,
@@ -143,66 +173,81 @@
         element: el
       });
     } else {
-      // 2. Child elements within slides: Fade + Slide Up / Left transitions
-      let fromVars = { opacity: 0, y: 30 };
-      let toVars = { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" };
+      // 2. スライド内の要素。data-anim の語彙で登場のしかたを決める。
+      const spec = ANIMS[el.getAttribute("data-anim")] || ANIMS[DEFAULT_ANIM];
+      const fromVars = Object.assign({ opacity: 0 }, spec.from);
+      const toVars = Object.assign({ opacity: 1, ease: "power2.out", duration: 0.7 }, spec.to);
 
-      // Specialized animations based on element types
-      if (el.classList.contains("slide-title") || el.classList.contains("section-title")) {
-        fromVars = { opacity: 0, x: -50 };
-        toVars = { opacity: 1, x: 0, duration: 1.0, ease: "power3.out" };
-      } else if (el.classList.contains("slide-eyebrow")) {
-        fromVars = { opacity: 0, x: -30 };
-        toVars = { opacity: 1, x: 0, duration: 0.6, ease: "power2.out" };
-      } else if (el.classList.contains("section-rule")) {
-        fromVars = { opacity: 0, scaleX: 0 };
-        toVars = { opacity: 1, scaleX: 1, duration: 0.7, ease: "power2.out", transformOrigin: "left center" };
-      } else if (el.classList.contains("info-card")) {
-        fromVars = { opacity: 0, y: 50, scale: 0.94 };
-        toVars = { opacity: 1, y: 0, scale: 1, duration: 0.75, ease: "back.out(1.4)" };
-      } else if (el.classList.contains("bullet-item")) {
-        fromVars = { opacity: 0, x: -40 };
-        toVars = { opacity: 1, x: 0, duration: 0.65, ease: "power3.out" };
-      } else if (el.classList.contains("body-card")) {
-        fromVars = { opacity: 0, y: 24, scale: 0.98 };
-        toVars = { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power2.out" };
-      } else if (el.classList.contains("comparison-vs")) {
-        fromVars = { opacity: 0, scale: 0.4 };
-        toVars = { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" };
-      } else if (el.classList.contains("dialog-line")) {
-        const isB = el.classList.contains("speaker-b");
-        fromVars = { opacity: 0, x: isB ? 40 : -40, scale: 0.96 };
-        toVars = { opacity: 1, x: 0, scale: 1, duration: 0.5, ease: "power2.out" };
-      }
-
-      // Hide elements initially
       gsap.set(el, { opacity: 0 });
-
-      // Animate In
       tl.fromTo(el, fromVars, toVars, start);
-      
-      // Animate Out slightly before slide ends
-      tl.to(el, { 
-        opacity: 0, 
-        y: (el.classList.contains("slide-title") || el.classList.contains("section-title")) ? 0 : -20,
-        x: (el.classList.contains("slide-title") || el.classList.contains("section-title")) ? -20 : 0,
-        duration: 0.4, 
-        ease: "power2.in" 
-      }, start + duration - 0.4);
+
+      const exitAt = Math.max(start, start + duration - EXIT_DURATION);
+      tl.to(el, { opacity: 0, duration: EXIT_DURATION, ease: "power2.in" }, exitAt);
     }
   });
 
-  // Force rendering of the first frame to apply initial states
+  // --- 4. 実測オートフィット（自動適応の第 3 層） ---
+  //
+  // 件数ごとの CSS 密度段階で大半は収まるが、「3 項目だが各 80 文字」のような
+  // 文字数の振れまでは予測できない。描画後に実測し、はみ出していれば縮小する。
+  //
+  // 縮めるのは data-fit を付けた「箱」であって .clip ではない。
+  // .clip の transform は GSAP が握っているため、そこへ scale を書くと
+  // 登場アニメーションに上書きされて効かない（または動きが壊れる）。
+  const MIN_FIT_SCALE = 0.62;
+
+  function fitBox(box) {
+    box.style.transform = "";
+    const availH = box.clientHeight;
+    const availW = box.clientWidth;
+    if (!availH || !availW) return;
+    // +1px は小数の丸め差で毎回わずかに縮むのを防ぐための遊び
+    const ratioH = availH / Math.max(availH, box.scrollHeight - 1);
+    const ratioW = availW / Math.max(availW, box.scrollWidth - 1);
+    const scale = Math.max(MIN_FIT_SCALE, Math.min(ratioH, ratioW, 1));
+    if (scale < 0.995) box.style.transform = `scale(${scale.toFixed(3)})`;
+  }
+
+  function autoFitAll() {
+    // スライドは display:none で待機しているため、そのままでは寸法が 0 になる。
+    // 1 枚ずつ「見えない状態で表示」して測り、元に戻す。
+    document.querySelectorAll(".slide").forEach((slide) => {
+      const prevDisplay = slide.style.display;
+      const prevVisibility = slide.style.visibility;
+      const prevOpacity = slide.style.opacity;
+      slide.style.display = "flex";
+      slide.style.visibility = "hidden";
+      slide.style.opacity = "1";
+      slide.querySelectorAll("[data-fit]").forEach(fitBox);
+      slide.style.display = prevDisplay;
+      slide.style.visibility = prevVisibility;
+      slide.style.opacity = prevOpacity;
+    });
+  }
+
   tl.seek(0);
 
-  // Signal readiness for HyperFrames capture engine
-  window.__playerReady = true;
-  window.__renderReady = true;
+  // フォントの読み込み完了を待ってから実測する。
+  // 待たずに測ると代替フォントの寸法で判定してしまい、
+  // 「たまに文字が小さすぎる動画ができる」という再現しにくい不具合になる。
+  // ただしフォント読込が詰まったときにレンダリングが永久に始まらないのは困るので、
+  // 3 秒で打ち切る。
+  const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+  Promise.race([fontsReady, new Promise((resolve) => setTimeout(resolve, 3000))])
+    .catch(() => {})
+    .then(() => {
+      autoFitAll();
+      tl.seek(0);
+      // hyperframes はこのフラグを見てフレームの取得を始める。
+      // オートフィット後に立てることで、調整済みの絵だけが撮られる。
+      window.__playerReady = true;
+      window.__renderReady = true;
+    });
 
   // Keep a playhead updater that triggers UI rendering
   let activeSlide = null;
 
-  // --- 3. Viewport Responsive Scaling (16:9 ratio) ---
+  // --- 5. Viewport Responsive Scaling (16:9 ratio) ---
   // #stage はダッシュボードの外（body 直下）にあるため、プレビュー時は
   // 中央セル (.dashboard-preview) の矩形を測って、その上に重ねて表示する。
   const dashboardPreview = document.querySelector(".dashboard-preview");
@@ -235,7 +280,7 @@
   window.addEventListener("load", layoutStage);
   layoutStage();
 
-  // --- 4. Interactive Studio Controls (Only initialized in preview mode) ---
+  // --- 6. Interactive Studio Controls (Only initialized in preview mode) ---
   if (isPreviewMode) {
     initPreviewDashboard();
   }
@@ -450,7 +495,7 @@
     }
   }
 
-  // --- 5. Helper Formatting Functions ---
+  // --- 7. Helper Formatting Functions ---
   function formatTime(seconds) {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);

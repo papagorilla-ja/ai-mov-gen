@@ -1,0 +1,17 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  {# 入れ子は DOM の入れ子そのもので表す。座標計算も SVG も要らず、
+     文字の長さが変わっても外枠が自動で追従する。 #}
+  <div class="nest-outer">
+    {% for layer in layers %}
+    <div class="clip nest-layer" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+         data-anim="expand-circle" style="--depth: {{ loop.index0 }}">
+      <div class="nest-head">
+        <span class="nest-label">{{ layer['label'] }}</span>
+        {% if layer['text'] %}<span class="nest-text">{{ layer['text'] }}</span>{% endif %}
+      </div>
+    {% endfor %}
+    {# 開いた層を逆順に閉じる #}
+    {% for _ in layers %}</div>{% endfor %}
+  </div>
+</div>

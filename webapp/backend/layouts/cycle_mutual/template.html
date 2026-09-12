@@ -1,0 +1,27 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage fixed-ar mutual-stage" data-count="{{ node_count }}" style="--dg-ar: {{ ar }}">
+    {% for lk in links %}
+    <div class="mutual-link-slot" style="left: {{ lk['left'] }}%; top: {{ lk['top'] }}%; --rot: {{ lk['angle'] }}deg">
+      {# 両端に矢じりを付けて「どちらからも作用する」ことを示す #}
+      <svg class="clip mutual-link" viewBox="0 0 120 24"
+           data-seq="spread" data-seq-index="{{ loop.index0 }}" data-seq-offset="0.3" data-anim="draw-right">
+        <path class="dg-arrow" d="M18 12h84"/>
+        <path class="dg-arrow" d="M26 5l-8 7 8 7"/>
+        <path class="dg-arrow" d="M94 5l8 7-8 7"/>
+      </svg>
+    </div>
+    {% endfor %}
+    {% for nd in c['nodes'][:node_count] %}
+    <div class="diagram-node mutual-node"
+         style="left: {{ positions[loop.index0]['left'] }}%; top: {{ positions[loop.index0]['top'] }}%;
+                width: {{ node_width }}%">
+      <div class="clip mutual-body" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+        {% if nd['icon'] and icon(nd['icon']) %}<div class="mutual-icon">{{ icon(nd['icon']) }}</div>{% endif %}
+        {% if nd['label'] %}<div class="mutual-label">{{ nd['label'] }}</div>{% endif %}
+        {% if nd['text'] %}<p class="mutual-text">{{ nd['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

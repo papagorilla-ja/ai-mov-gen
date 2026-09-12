@@ -3,49 +3,40 @@ import re
 import httpx
 from fastapi import HTTPException, status
 from services.llm_client import chat_completion
-from schemas.scenario import ScenarioProposal, ScenarioOutline, ScenarioOutlineItem
+from schemas.scenario import ScenarioOutline
+from layouts import _prompts, _types
+from layouts import _registry as layouts
 
 # scenario.py のテンプレートなどをこちらに移行して集約
+# テキスト貼り付け（Route B）のアウトライン生成。
+# 以前はここで「全シーンの内容」まで 1 回の呼び出しで作らせていたが、
+# その方式だと 14 型ぶんのスキーマをプロンプトに詰め込む必要があり、
+# qwen3:14b では破綻する。章立てだけを作らせ、中身はシーンごとに深掘りする。
 PROMPT_B_TEMPLATE = """あなたは動画の構成を作成するアシスタントです。
-ユーザーから入力された「テキスト」を読み取り、論理的な意味のまとまり（シーン）ごとに分割し、各シーンのスライドタイトル、レイアウト、スライド表示内容、およびナレーション原稿を作成してください。
-
-**出力形式:**
-必ず以下の JSON フォーマットのスキーマに合致するように出力してください。
-マークダウンコードブロック（```json ... ```）で囲って出力してください。
-前置きや説明文は一切含めないでください。JSON 以外の出力は無効です。
+ユーザーから入力された「テキスト」を読み取り、論理的な意味のまとまり（シーン）ごとに分割して、
+動画の章立てを作ってください。この段階では**各シーンのタイトル・あらすじ・情報の型**だけを決めます。
+スライドの文面やナレーション本文はここでは作りません。
 
 必ずインプットテキスト全体をカバーし、複数（2〜10程度）のシーンに分割してください。
 1つのシーンにすべてをまとめないでください。
 
-**重要指示:**
-`text_only` は装飾が少ないため、内容に応じて `bullet_list`（要点列挙）・`comparison`（対比）・`card_panel`（複数トピックの並列提示）・`table`（数値や項目の一覧）・`graph_chart`（数値データの推移や比率）・`section_header`（章の区切り）を積極的に使い分けてください。1つの動画内で同じレイアウトが連続しすぎないようにしてください。
+**情報の型（content_type）はこの一覧から選ぶこと:**
+{{type_menu}}
 
-**JSON スキーマ:**
+同じ型が延々と続かないよう、内容に応じて使い分けてください。
+ただし、内容に合わない型を無理に混ぜないでください。
+
+**出力形式:**
+マークダウンコードブロック（```json ... ```）で囲って、次の JSON のみを出力してください。
+前置きや説明文は一切含めないでください。
+
 {
   "scenes": [
     {
       "index": 1,
-      "layout_type": "bullet_list", // text_only, section_header, bullet_list, text_left_image_right, full_image, comparison, chat_dialog, card_panel, table, graph_chart から選択
-      "title": "スライドタイトル",
-      "slide_content_json": {
-        // layout_type が bullet_list の場合:
-        // "bullet_points": ["箇条書き項目1", "箇条書き項目2"]
-        // layout_type が comparison の場合:
-        // "left_text": "対比テキスト左", "right_text": "対比テキスト右"
-        // layout_type が chat_dialog の場合:
-        // "lines": [{"speaker": "A", "text": "こんにちは！"}, {"speaker": "B", "text": "よろしくおねがいします！"}]
-        // layout_type が card_panel の場合:
-        // "cards": [{"title": "機能1", "text": "説明1"}, {"title": "機能2", "text": "説明2"}]
-        // layout_type が table の場合:
-        // "headers": ["製品", "価格"], "rows": [["プランA", "¥1,000"], ["プランB", "¥2,000"]]
-        // layout_type が graph_chart の場合:
-        // "chart": {"type": "bar", "labels": ["2023", "2024"], "values": [100, 180], "unit": "成長率(%)"}
-        // layout_type が section_header の場合:
-        // "subtitle": "セクションのサブタイトル"
-        // その他のレイアウトの場合:
-        // "body": "スライド内に表示する要約テキスト"
-      },
-      "narration_text": "このスライドのナレーション原稿（丁寧語で300〜500文字程度）"
+      "title": "シーンのタイトル（10〜28文字）",
+      "summary": "このシーンで扱う内容のあらすじ（1〜2文）",
+      "content_type": "上の一覧から選んだ型の値"
     }
   ]
 }
@@ -54,28 +45,16 @@ PROMPT_B_TEMPLATE = """あなたは動画の構成を作成するアシスタン
 {{pasted_text}}"""
 
 
-def extract_json_proposal(text: str) -> ScenarioProposal | None:
-    """LLM の応答から ```json ... ``` ブロックまたは通常の JSON 構造を抽出し、パースする。"""
-    try:
-        # ```json ... ``` の抽出を試みる
-        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-        else:
-            # text 内で最初に出現する { から最後に出現する } までを抽出
-            match_raw = re.search(r"(\{.*\})", text, re.DOTALL)
-            if match_raw:
-                json_str = match_raw.group(1)
-            else:
-                json_str = text
-                
-        data = json.loads(json_str)
-        # スキーマの検証
-        return ScenarioProposal.model_validate(data)
-    except Exception as e:
-        print(f"JSON proposal parsing failed: {e}")
-        return None
 
+def _loads(text: str):
+    """LLM が返した JSON をパースする。
+
+    strict=False にしているのは、文字列リテラルの中に生の改行がそのまま
+    入ってくることがあるため。既定の strict=True では「不正な制御文字」として
+    弾かれてしまうが、実害は無いので受け入れる。
+    （実測で Invalid control character による失敗を確認している）
+    """
+    return json.loads(text, strict=False)
 
 def extract_outline_proposal(text: str) -> ScenarioOutline | None:
     """LLM 応答から軽量アウトライン JSON を抽出する。途中で切れていても、
@@ -89,7 +68,7 @@ def extract_outline_proposal(text: str) -> ScenarioOutline | None:
         candidates.append(m2.group(1))
     for c in candidates:
         try:
-            data = json.loads(c)
+            data = _loads(c)
             return ScenarioOutline.model_validate(data)
         except Exception:
             pass
@@ -100,7 +79,7 @@ def extract_outline_proposal(text: str) -> ScenarioOutline | None:
         items = []
         for obj in re.finditer(r"\{[^{}]*\}", sub):
             try:
-                items.append(json.loads(obj.group(0)))
+                items.append(_loads(obj.group(0)))
             except Exception:
                 continue
         if items:
@@ -110,202 +89,104 @@ def extract_outline_proposal(text: str) -> ScenarioOutline | None:
     return None
 
 
-LAYOUT_CONTENT_PROMPTS: dict[str, str] = {
-    "text_only": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「本文テキストだけで見せるスライド」です。
+def _parse_json_reply(raw: str) -> dict | None:
+    """LLM の応答から JSON を取り出す。取り出せなければ None。
 
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【body の作り方】
-- あらすじを、視聴者がスライドを見ただけで理解できる説明文に展開する
-- 80〜150文字。1〜3文。体言止めを避け、丁寧語（です・ます調）で書く
-- ナレーションの丸写しにしない。スライドは「要点の提示」、ナレーションは「語り」と役割を分ける
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"body": "…"}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"body": "縄文時代は、農耕を持たないまま定住と祭祀の高度化を実現した、世界的にも稀な社会でした。その仕組みを、同時代の文明と比べながら見ていきます。"}}, "narration_text": "ここでは、縄文時代がなぜ特異な社会だったのかを整理します。…"}}""",
-
-    "bullet_list": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「要点を箇条書きで見せるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【bullet_points の作り方】
-- 3〜5項目。項目数は内容に応じて決める（無理に5つにしない）
-- 各項目 20〜40文字。1項目1メッセージ。長い説明文を入れない
-- 並列な粒度に揃える（抽象度がバラバラにならないようにする）
-- 文末は「〜する」「〜が重要」など簡潔に。句点は付けない
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"bullet_points": ["…", "…", "…"]}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"bullet_points": ["寒冷化と人口減少の時期は一致しない", "地域ごとに異なる適応戦略が存在した", "単一要因ではなく複合的な社会変動"]}}, "narration_text": "縄文社会の衰退を語るとき、しばしば寒冷化が原因として挙げられます。…"}}""",
-
-    "card_panel": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「複数のトピックをカードで並べて見せるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【cards の作り方】
-- 2〜4枚。3枚が最も収まりが良い（横3カラムで表示される）
-- 各 title は 6〜16文字の短い見出し（体言止め可）
-- 各 text は 40〜70文字の説明文。丁寧語で書く
-- カード同士が並列の関係になるようにする（時系列・手法・観点など軸を1つに揃える）
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"cards": [{{"title": "…", "text": "…"}}]}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"cards": [{{"title": "年代測定", "text": "放射性炭素年代測定により、遺物がいつのものかを高い精度で特定します。"}}, {{"title": "残留物分析", "text": "土器に残る有機物を調べ、当時どんな食物を調理していたかを復元します。"}}, {{"title": "同位体分析", "text": "人骨の同位体比から、集団の移動経路や食性の変化を追跡します。"}}]}}, "narration_text": "現代の考古学は、3つの科学的手法でアプローチします。…"}}""",
-
-    "comparison": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「2つを左右に並べて対比するスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【作り方】
-- left_title / right_title は比較対象の名前（4〜16文字）。必ず入れる
-- left_text / right_text は各 60〜100文字。同じ観点で対比する（片方だけ別の話題にしない）
-- 優劣を断定せず、事実ベースで違いを示す
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"left_title": "…", "left_text": "…", "right_title": "…", "right_text": "…"}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"left_title": "メソポタミア・エジプト", "left_text": "穀物農耕を基盤に都市国家が成立しました。階級社会が生まれ、青銅器と文字が発明されています。", "right_title": "縄文日本", "right_text": "農耕も金属器も持たないまま定住が進みました。祭祀は高度化する一方、社会的な不平等は低く保たれています。"}}, "narration_text": "同じ頃、世界では…"}}""",
-
-    "table": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「表で情報を整理して見せるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【作り方】
-- headers は 2〜4列。各 2〜8文字の短い見出し
-- rows は 2〜5行。各行の要素数は headers と必ず一致させる
-- 各セルは 20文字以内を目安に簡潔に。長文を入れない
-- 数値・分類・時期など、表にする意味がある情報だけを載せる
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"headers": ["…", "…"], "rows": [["…", "…"]]}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"headers": ["遺跡", "時期", "特徴"], "rows": [["三内丸山", "前期〜中期", "大型掘立柱建物と長期定住"], ["大湯環状列石", "後期", "祭祀空間としての配石遺構"], ["亀ヶ岡", "晩期", "洗練された遮光器土偶"]]}}, "narration_text": "代表的な遺跡を比べてみましょう。…"}}""",
-
-    "graph_chart": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「グラフで数値を見せるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【作り方】
-- type は bar（項目比較）/ line（時系列の推移）/ pie（構成比）から内容に合うものを選ぶ
-- labels と values は必ず同じ個数（3〜6個）にする
-- values は数値のみ（単位や記号を混ぜない）。unit に単位名を書く
-- あらすじに具体的な数値が無い場合は、代表的・概算であることが分かる粒度で妥当な値を置く
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"chart": {{"type": "bar", "labels": ["…"], "values": [1], "unit": "…"}}}}, "narration_text": "…"}}
-
-出力例:
-{{"slide_content_json": {{"chart": {{"type": "bar", "labels": ["前期", "中期", "後期", "晩期"], "values": [120, 260, 180, 90], "unit": "遺跡数（概数）"}}}}, "narration_text": "各時期の遺跡数の変化を見てみます。…"}}""",
-
-    "chat_dialog": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「2人の会話形式で見せるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【lines の作り方】
-- 4〜8発言。speaker は "A"（質問・進行役）と "B"（回答・解説役）を交互に
-- 各 text は 20〜60文字。話し言葉で自然に
-- A が素朴な疑問を出し、B が分かりやすく答える流れにする
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"lines": [{{"speaker": "A", "text": "…"}}, {{"speaker": "B", "text": "…"}}]}}, "narration_text": "…"}}""",
-
-    "section_header": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「章の区切りを示す扉スライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【subtitle の作り方】
-- 30〜60文字。この章で何を扱うかを一言で示す
-- 詳細な説明は書かない（扉なので簡潔に）
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"subtitle": "…"}}, "narration_text": "…"}}""",
-
-    "text_left_image_right": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「左に解説テキスト、右に画像を置くスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【作り方】
-- body は 80〜120文字。右側に画像が入る前提で、簡潔にまとめる
-- image_description には「右側にどんな画像を置くべきか」を日本語で30〜60文字で書く
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"body": "…", "image_description": "…"}}, "narration_text": "…"}}""",
-
-    "full_image": """あなたは研修動画のスライドを作るプロの構成作家です。
-このシーンは「画面全体に画像を出し、その上にタイトルを重ねるスライド」です。
-
-シーンタイトル: {title}
-このシーンのあらすじ（意図）: {summary}
-
-【作り方】
-- body は画像に添える短い説明（40〜80文字）
-- image_description には「どんな画像を全画面に置くべきか」を日本語で30〜60文字で書く
-
-出力は次のJSONのみ（前置き・解説・コードブロック外の文字は禁止）:
-{{"slide_content_json": {{"body": "…", "image_description": "…"}}, "narration_text": "…"}}""",
-}
-
-COMMON_CONTENT_SUFFIX = """
-
-【共通ルール】
-- ナレーション(narration_text)は丁寧語（です・ます調）で、20〜35秒で読める300〜500文字程度
-- スライドの文言をそのまま読み上げるのではなく、スライドを補足して語る内容にする
-- JSON以外の文字（前置き・解説・「以下が結果です」等）は一切出力しない
-"""
-
-
-async def generate_scene_content(title: str, summary: str, layout_type: str) -> dict:
-    """レイアウトタイプ別の専用プロンプトで slide_content_json と narration_text を生成する。"""
-    template = LAYOUT_CONTENT_PROMPTS.get(layout_type) or LAYOUT_CONTENT_PROMPTS["text_only"]
-    prompt = template.format(title=title or "無題", summary=summary or "（未設定）") + COMMON_CONTENT_SUFFIX
-    raw = await chat_completion(messages=[{"role": "user", "content": prompt}], provider="local")
+    3 段階で試す。壊れ方はモデルの気分次第なので、機械的に直せる範囲だけ直す。
+      1. コードブロックを剥がしてそのまま
+      2. 最初の { から最後の } までを抜き出して
+      3. 末尾の余分なカンマ（"a": 1, } のような形）を落として
+    """
     clean = raw.strip()
     if "```json" in clean:
         clean = clean.split("```json")[1]
     if "```" in clean:
         clean = clean.split("```")[0]
-    clean = clean.strip()
-    try:
-        parsed = json.loads(clean)
-    except Exception:
-        m = re.search(r"(\{.*\})", raw, re.DOTALL)
-        parsed = json.loads(m.group(1)) if m else {}
-    slide_content = {}
-    if isinstance(parsed, dict):
-        if "slide_content_json" in parsed and isinstance(parsed["slide_content_json"], dict):
-            slide_content = parsed["slide_content_json"]
-        else:
-            slide_content = {k: v for k, v in parsed.items() if k != "narration_text"}
+
+    candidates = [clean.strip()]
+    m = re.search(r"(\{.*\})", raw, re.DOTALL)
+    if m:
+        candidates.append(m.group(1))
+    # 末尾カンマは LLM が最も出しやすい壊し方。落とすだけで通ることが多い。
+    candidates += [re.sub(r",\s*([}\]])", r"\1", c) for c in list(candidates)]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            parsed = _loads(candidate)
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+async def _ask_json(prompt: str, *, attempts: int = 2) -> dict:
+    """LLM に JSON を返させ、パースして返す。
+
+    temperature が 0 ではないため、同じプロンプトでも壊れた JSON が返ることがある
+    （実測で 4 回に 1 回程度）。決定的な失敗ではないので、駄目なら引き直す。
+    引き直しても駄目なときだけ例外にする。黙って空を返すと、
+    「シーンだけ中身が無い動画」が正常終了で出来上がってしまう。
+    """
+    last_raw = ""
+    for attempt in range(1, attempts + 1):
+        last_raw = await chat_completion(messages=[{"role": "user", "content": prompt}], provider="local")
+        parsed = _parse_json_reply(last_raw)
+        if parsed is not None:
+            if attempt > 1:
+                print(f"[llm] JSON の取得に {attempt} 回目で成功しました")
+            return parsed
+        print(f"[llm] JSON として読めない応答でした（{attempt}/{attempts} 回目）")
+
+    raise ValueError(
+        "LLM が JSON として読める応答を返しませんでした"
+        f"（{attempts} 回試行）。応答の先頭: {last_raw.strip()[:200]!r}"
+    )
+
+
+async def generate_scene_content(
+    title: str,
+    summary: str,
+    layout_type: str,
+    *,
+    aspect: str = "16:9",
+    avoid: tuple[str, ...] = (),
+) -> dict:
+    """シーンの内容を生成し、使う見せ方を確定させる。
+
+    段階 2（内容の生成＋見せ方の選択）と段階 3（件数・縦横比・連続の検査と
+    自動差し替え）をまとめて行う。呼び出し側はレイアウトの知識を持たなくてよい。
+
+    戻り値:
+        {"layout": …, "slide_content_json": {…}, "narration_text": …, "layout_reason": …}
+    """
+    type_id = layouts.type_of(layout_type)
+    prompt = _prompts.content_prompt(type_id, title, summary, aspect=aspect)
+    parsed = await _ask_json(prompt)
+
+    # slide_content_json を包み忘れて、中身を直に返してくることがある
+    raw_content = parsed.get("slide_content_json")
+    if not isinstance(raw_content, dict):
+        raw_content = {k: v for k, v in parsed.items()
+                       if k not in ("narration_text", "layout", "slide_content_json")}
+
+    content = _types.normalize(type_id, raw_content)
+    if not content.get("title"):
+        content["title"] = title or ""
+
+    # 段階 3: 実データの件数を見て、収まるレイアウトへ寄せる
+    resolution = layouts.resolve(
+        type_id, content, parsed.get("layout") or layout_type,
+        aspect=aspect, avoid=avoid,
+    )
 
     return {
-        "slide_content_json": slide_content,
-        "narration_text": parsed.get("narration_text") or "" if isinstance(parsed, dict) else "",
+        "layout": resolution.layout_id,
+        "slide_content_json": content,
+        "narration_text": str(parsed.get("narration_text") or ""),
+        "layout_reason": resolution.reason,
     }
 
 
@@ -341,10 +222,10 @@ async def generate_image_prompt(title: str, summary: str, layout_type: str,
         clean = clean.split("```")[0]
     clean = clean.strip()
     try:
-        parsed = json.loads(clean)
+        parsed = _loads(clean)
     except Exception:
         m = re.search(r"(\{.*\})", raw, re.DOTALL)
-        parsed = json.loads(m.group(1)) if m else {}
+        parsed = _loads(m.group(1)) if m else {}
     return {
         "image_prompt": parsed.get("image_prompt") or "",
         "note": parsed.get("note") or ""
@@ -459,7 +340,7 @@ async def apply_style_prompt(current_style_dict: dict, style_prompt: str) -> dic
             clean_reply = clean_reply.split("```")[0]
         clean_reply = clean_reply.strip()
         
-        parsed = json.loads(clean_reply)
+        parsed = _loads(clean_reply)
         return parsed
     except httpx.HTTPError as e:
         raise HTTPException(
@@ -539,9 +420,15 @@ async def generate_slide_narration(
     return text.strip()
 
 
-async def split_text_to_scenes(text: str) -> str:
-    """プレーンテキストからシーン分割提案の生の応答を生成する"""
-    prompt = PROMPT_B_TEMPLATE.replace("{{pasted_text}}", text)
+async def split_text_to_scenes(text: str, breadth: str | None = None) -> str:
+    """プレーンテキストからシーン分割提案の生の応答を生成する。
+
+    作るのは章立て（タイトル・あらすじ・情報の型）だけ。
+    スライドの中身は後工程（generate_scene_content）で型ごとに深掘りする。
+    """
+    prompt = (PROMPT_B_TEMPLATE
+              .replace("{{type_menu}}", _prompts.type_menu(layouts.allowed_types(breadth)))
+              .replace("{{pasted_text}}", text))
     try:
         llm_response = await chat_completion(
             messages=[
@@ -666,12 +553,12 @@ async def ai_adjust_scene_design(current_html: str, current_css: str, instructio
 
     parsed = {}
     try:
-        parsed = json.loads(clean_raw)
+        parsed = _loads(clean_raw)
     except Exception:
         match = re.search(r"(\{.*\})", raw, re.DOTALL)
         if match:
             try:
-                parsed = json.loads(match.group(1))
+                parsed = _loads(match.group(1))
             except Exception:
                 pass
 

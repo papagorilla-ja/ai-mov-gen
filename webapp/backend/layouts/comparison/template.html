@@ -1,0 +1,19 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="comparison-container">
+    <div class="comparison-cols">
+      <div class="clip comparison-col left" data-seq="spread" data-seq-index="0" data-anim="slide-right">
+        {% if c['left']['title'] %}<div class="comparison-col-head">{{ c['left']['title'] }}</div>{% endif %}
+        <p>{{ c['left']['text'] }}</p>
+      </div>
+      <div class="clip comparison-vs" data-seq="spread" data-seq-index="1" data-anim="pop">VS</div>
+      <div class="clip comparison-col right" data-seq="spread" data-seq-index="2" data-anim="slide-left">
+        {% if c['right']['title'] %}<div class="comparison-col-head">{{ c['right']['title'] }}</div>{% endif %}
+        <p>{{ c['right']['text'] }}</p>
+      </div>
+    </div>
+    {% if c['verdict'] %}
+    <div class="clip layout-verdict" data-seq="tail" data-anim="rise">{{ c['verdict'] }}</div>
+    {% endif %}
+  </div>
+</div>

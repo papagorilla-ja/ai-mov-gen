@@ -1,0 +1,13 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="schedule" data-count="{{ count }}">
+    {% for st in c['steps'] %}
+    <div class="clip sched-row" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <div class="sched-when">{{ st['label'] }}</div>
+      {# 縦線と点は左の帯に置く。行を追加しても線が自動でつながる。 #}
+      <div class="sched-rail"><span class="sched-dot"></span></div>
+      <div class="sched-what">{{ st['text'] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

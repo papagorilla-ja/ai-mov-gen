@@ -1,0 +1,16 @@
+{# 注意: 内容は必ず c['xxx'] とブラケットで参照する。
+   c.items / c.values のようにドットで書くと dict のメソッドを拾ってしまう。 #}
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  {% if c['lead'] %}
+  <p class="clip statement-lead" data-seq="head" data-seq-offset="0.3" data-anim="rise">{{ c['lead'] }}</p>
+  {% endif %}
+  {% if c['body'] %}
+  <div class="clip body-card" data-seq="head" data-seq-offset="0.5" data-anim="rise">
+    <p class="body-text">{{ c['body'] }}</p>
+  </div>
+  {% endif %}
+  {% if c['note'] %}
+  <p class="clip statement-note" data-seq="tail" data-anim="fade">{{ c['note'] }}</p>
+  {% endif %}
+</div>

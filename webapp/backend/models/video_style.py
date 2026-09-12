@@ -26,6 +26,10 @@ class VideoStyle(Base):
     decor_style: Mapped[str | None] = mapped_column(String)
     type_scale: Mapped[str | None] = mapped_column(String)
     transition: Mapped[str | None] = mapped_column(String)
+    # FIX-22: 1 本の動画で AI に使わせるレイアウトの幅（minimal / standard / rich）。
+    # 40 種あっても毎シーン違う図解が出ると、視聴者は毎回「図の読み方」を
+    # 学び直すことになる。動画ごとにここで絞る。値の一覧は layouts/_registry.py。
+    layout_breadth: Mapped[str | None] = mapped_column(String)
     style_prompt: Mapped[str | None] = mapped_column(Text)
     custom_css: Mapped[str | None] = mapped_column(Text)
     default_speaker_id: Mapped[str | None] = mapped_column(String, ForeignKey("speakers.id"))

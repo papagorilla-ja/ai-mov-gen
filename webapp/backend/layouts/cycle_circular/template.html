@@ -1,0 +1,28 @@
+{# 位置決めの wrapper（.diagram-node）と、アニメーションする要素（.clip）を分ける。
+   GSAP は transform を丸ごと書き換えるため、CSS の translate(-50%,-50%) が
+   載った要素をそのまま animate すると、中央寄せが消えて図形からずれた場所へ飛ぶ。 #}
+{% include "_partials/head.html" %}
+<div class="slide-body-area">
+  <div class="diagram-stage fixed-ar cycle-stage" data-count="{{ count }}" style="--dg-ar: 1 / 1">
+    {% for a in arrows %}
+    <div class="cycle-arrow-slot" style="left: {{ a['left'] }}%; top: {{ a['top'] }}%; --rot: {{ a['angle'] }}deg">
+      <svg class="clip cycle-arrow" viewBox="0 0 30 22"
+           data-seq="spread" data-seq-index="{{ loop.index0 * 2 + 1 }}" data-anim="draw-right">
+        <path class="dg-arrow" d="M3 11h22"/>
+        <path class="dg-arrow" d="M18 4l7 7-7 7"/>
+      </svg>
+    </div>
+    {% endfor %}
+    {% for nd in c['nodes'] %}
+    <div class="diagram-node cycle-node"
+         style="left: {{ positions[loop.index0]['left'] }}%; top: {{ positions[loop.index0]['top'] }}%">
+      <div class="clip cycle-node-body"
+           data-seq="spread" data-seq-index="{{ loop.index0 * 2 }}" data-anim="pop">
+        {% if nd['icon'] and icon(nd['icon']) %}<div class="cycle-node-icon">{{ icon(nd['icon']) }}</div>{% endif %}
+        {% if nd['label'] %}<div class="cycle-node-label">{{ nd['label'] }}</div>{% endif %}
+        {% if nd['text'] %}<p class="cycle-node-text">{{ nd['text'] }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

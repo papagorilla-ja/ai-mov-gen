@@ -1,0 +1,14 @@
+{% include "_partials/head.html" %}
+{% if c['subtitle'] %}
+<p class="clip summary-subtitle" data-seq="head" data-seq-offset="0.3" data-anim="fade">{{ c['subtitle'] }}</p>
+{% endif %}
+<div class="slide-body-area" data-fit>
+  <ul class="summary-list" data-count="{{ count }}">
+    {% for ch in c['chapters'] %}
+    <li class="clip summary-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      <span class="summary-check">{{ icon('確認') }}</span>
+      <span class="summary-label">{{ ch['label'] }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>

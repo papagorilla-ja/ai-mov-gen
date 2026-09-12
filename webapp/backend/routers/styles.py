@@ -22,6 +22,7 @@ from services.design_tokens import (
     normalize_type_scale,
     stage_classes,
 )
+from layouts._registry import normalize_breadth
 from services.llm_service import apply_style_prompt as apply_style_prompt_llm
 
 router = APIRouter(tags=["styles"])
@@ -52,6 +53,7 @@ _NORMALIZED_FIELDS = {
     "decor_style": normalize_decor,
     "type_scale": normalize_type_scale,
     "transition": normalize_transition,
+    "layout_breadth": normalize_breadth,
 }
 
 

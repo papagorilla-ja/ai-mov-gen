@@ -1,0 +1,30 @@
+.data-table {
+  width: 100%; border-collapse: separate;
+  border-spacing: 0 calc(12px * var(--gap-dens));
+  font-size: var(--fs-body);
+}
+.data-table thead th {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-sub);
+  letter-spacing: 1px;
+  color: var(--color-accent);
+  text-align: left; padding: 0 32px calc(14px * var(--gap-scale));
+}
+.data-table tbody tr { background: var(--surface-bg); }
+.data-table tbody td {
+  padding: calc(26px * var(--gap-scale) * var(--dens)) 32px;
+  color: var(--text-primary);
+  border-top: var(--surface-border);
+  border-bottom: var(--surface-border);
+}
+/* 1 列目は「その行が何か」を示す見出し列なので、他の列より強く出す */
+.data-table tbody td:first-child {
+  border-left: var(--surface-border);
+  border-radius: 16px 0 0 16px;
+  font-weight: 600;
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+.data-table tbody td:last-child {
+  border-right: var(--surface-border);
+  border-radius: 0 16px 16px 0;
+}

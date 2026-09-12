@@ -1,0 +1,39 @@
+.formula-row {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: calc(16px * var(--gap-scale));
+  min-height: calc(var(--canvas-height) * 0.30);
+}
+.formula-term {
+  flex: 1 1 0; min-width: 0; max-width: 26%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: calc(10px * var(--gap-scale));
+  text-align: center;
+  padding: calc(30px * var(--gap-scale) * var(--dens)) calc(22px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+  box-shadow: var(--surface-shadow);
+}
+/* 結果だけ強調する。数式は「左辺より右辺が言いたいこと」なので、
+   等号の右を一段持ち上げないと、並んだ箱のどれが結論か分からない。 */
+.formula-term.result {
+  background: rgba(var(--color-primary-rgb), 0.18);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.5);
+}
+.formula-term-label {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-lead); color: var(--text-primary); line-height: 1.25;
+}
+.formula-term.result .formula-term-label { color: var(--color-accent); }
+.formula-term-note {
+  font-size: var(--fs-sub); line-height: 1.5;
+  color: var(--text-secondary); margin: 0;
+}
+.formula-op {
+  align-self: center; flex: none;
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: calc(2.6rem * var(--ts) * var(--dens));
+  color: var(--text-muted);
+}
+.formula-op.equals { color: var(--color-accent); }

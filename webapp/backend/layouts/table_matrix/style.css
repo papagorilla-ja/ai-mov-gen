@@ -1,0 +1,47 @@
+.matrix-table {
+  width: 100%; border-collapse: separate;
+  border-spacing: 0 calc(10px * var(--gap-dens));
+  font-size: var(--fs-body);
+}
+.matrix-table thead th {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-sub); color: var(--color-accent);
+  text-align: center; padding: 0 18px calc(14px * var(--gap-scale));
+}
+.matrix-table thead th:first-child { text-align: left; }
+.matrix-table tbody tr { background: var(--surface-bg); }
+.matrix-table tbody td {
+  padding: calc(20px * var(--gap-scale) * var(--dens)) 18px;
+  color: var(--text-primary); text-align: center;
+  border-top: var(--surface-border); border-bottom: var(--surface-border);
+}
+/* 1 列目は条件名。左ぞろえにして、記号の列と役割を分ける。 */
+.matrix-table tbody td:first-child {
+  text-align: left; font-weight: 600;
+  border-left: var(--surface-border);
+  border-radius: 14px 0 0 14px;
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+.matrix-table tbody td:last-child { border-right: var(--surface-border); border-radius: 0 14px 14px 0; }
+
+/* 記号は丸の中に置く。文字だけだと ○ と × の見分けが一瞬つかない。 */
+.mx-mark span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: calc(40px * var(--dens)); height: calc(40px * var(--dens));
+  border-radius: 50%;
+  font-weight: 800; font-size: var(--fs-body); line-height: 1;
+}
+/* 地は淡く、記号そのものをはっきり出す。
+   地を濃く塗ると「丸の中に丸」になって ○ が読み取れなくなる。 */
+.mx-ok {
+  color: var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.16);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.45);
+}
+.mx-mid {
+  color: var(--color-secondary);
+  background: rgba(var(--color-secondary-rgb), 0.16);
+  border: 1px solid rgba(var(--color-secondary-rgb), 0.45);
+}
+/* 不可は色ではなく「沈ませる」ことで示す。赤を使うと配色が破綻する動画があるため。 */
+.mx-ng { color: var(--text-muted); background: transparent; border: 1px solid var(--border-strong); }

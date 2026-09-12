@@ -1,0 +1,22 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="formula-row" data-count="{{ count }}">
+    {% for term in c['terms'] %}
+    {% if not loop.first %}
+    <div class="clip formula-op" data-seq="spread" data-seq-index="{{ loop.index0 * 2 - 1 }}"
+         data-anim="pop">{{ c['operator'] }}</div>
+    {% endif %}
+    <div class="clip formula-term" data-seq="spread" data-seq-index="{{ loop.index0 * 2 }}" data-anim="rise">
+      <div class="formula-term-label">{{ term['label'] }}</div>
+      {% if term['note'] %}<p class="formula-term-note">{{ term['note'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% if c['result']['label'] %}
+    <div class="clip formula-op equals" data-seq="tail" data-anim="pop">＝</div>
+    <div class="clip formula-term result" data-seq="tail" data-seq-offset="0.2" data-anim="rise">
+      <div class="formula-term-label">{{ c['result']['label'] }}</div>
+      {% if c['result']['note'] %}<p class="formula-term-note">{{ c['result']['note'] }}</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>

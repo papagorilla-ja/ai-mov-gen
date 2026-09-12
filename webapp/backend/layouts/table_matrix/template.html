@@ -1,0 +1,22 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <table class="matrix-table" data-count="{{ count }}">
+    {% if c['headers'] %}
+    <thead><tr>{% for h in c['headers'] %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    {% endif %}
+    <tbody>
+      {% for row in cells %}
+      <tr class="clip" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+        {% for cell in row %}
+        {# 記号のセルは中央ぞろえの丸印に、それ以外は通常のセルとして描く #}
+        {% if cell['mark'] %}
+        <td class="mx-mark"><span class="mx-{{ cell['mark'] }}">{{ cell['text'] }}</span></td>
+        {% else %}
+        <td>{{ cell['text'] }}</td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

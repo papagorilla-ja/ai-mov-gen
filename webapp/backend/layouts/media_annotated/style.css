@@ -1,0 +1,47 @@
+.annot-grid {
+  display: grid; grid-template-columns: 1.25fr 1fr;
+  gap: calc(50px * var(--gap-scale));
+  align-items: center; height: 100%;
+}
+.annot-visual { min-width: 0; display: flex; align-items: center; justify-content: center; }
+/* 画面キャプチャは白地のことが多い。地を明るく固定して、図そのものが沈まないようにする
+   （text_left_image_right の .illustration と同じ扱い）。 */
+.annot-image {
+  max-width: 100%; max-height: 760px; width: 100%; height: auto;
+  object-fit: contain;
+  border-radius: var(--surface-radius);
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+.annot-image--placeholder {
+  aspect-ratio: 16 / 10; height: auto;
+  border: 2px dashed var(--border-glass-hover);
+  background: var(--surface-bg);
+}
+.annot-side { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.annot-body {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0 0 calc(22px * var(--gap-scale));
+}
+.annot-notes {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: calc(14px * var(--gap-scale) * var(--gap-dens));
+}
+.annot-note {
+  display: flex; align-items: flex-start; gap: calc(16px * var(--gap-scale));
+  padding: calc(16px * var(--gap-scale) * var(--dens)) calc(20px * var(--gap-scale));
+  border-radius: calc(var(--surface-radius) - 6px);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+}
+.annot-no {
+  flex: none;
+  width: calc(34px * var(--dens)); height: calc(34px * var(--dens));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: var(--fs-sub);
+  color: var(--on-accent); background: var(--color-accent);
+}
+.annot-text { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-primary); }

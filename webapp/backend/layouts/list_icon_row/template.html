@@ -1,0 +1,17 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="icon-row" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <div class="clip icon-cell" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+      <div class="icon-cell-badge">
+        {# アイコンが解決できない語だったときは番号に落とす。
+           丸が空のまま並ぶと「読み込み失敗」に見えるため。 #}
+        {% if it['icon'] and icon(it['icon']) %}{{ icon(it['icon']) }}
+        {% else %}<span class="icon-cell-num">{{ loop.index }}</span>{% endif %}
+      </div>
+      {% if it['label'] %}<div class="icon-cell-label">{{ it['label'] }}</div>{% endif %}
+      {% if it['text'] %}<p class="icon-cell-text">{{ it['text'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

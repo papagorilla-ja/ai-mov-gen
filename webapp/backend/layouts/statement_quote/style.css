@@ -1,0 +1,23 @@
+.quote-area { justify-content: center; align-items: center; text-align: center; }
+.quote-block { position: relative; max-width: 1300px; padding-top: calc(48px * var(--gap-scale)); }
+.quote-mark {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(7rem * var(--ts)); line-height: 0.6;
+  color: var(--color-accent); opacity: 0.45;
+}
+.quote-lead {
+  font-family: var(--font-heading);
+  font-size: calc(3.1rem * var(--ts));
+  font-weight: 700; line-height: 1.5;
+  color: var(--text-primary); margin: 0;
+}
+.quote-body {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary);
+  margin: calc(30px * var(--gap-scale)) 0 0; max-width: 1000px;
+}
+.quote-source {
+  margin: calc(26px * var(--gap-scale)) 0 0;
+  font-size: var(--fs-sub); color: var(--color-accent); letter-spacing: 1px;
+}

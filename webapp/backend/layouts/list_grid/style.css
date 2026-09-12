@@ -1,0 +1,33 @@
+/* 4〜6 件を 2 段に折って並べる。1 段に 5 つ並べると 1 件あたりが細くなりすぎる。 */
+.grid-list {
+  display: grid;
+  gap: calc(20px * var(--gap-scale) * var(--gap-dens));
+  grid-template-columns: repeat(3, 1fr);
+  /* 内容の量だけで高さを決めると、2 段でも縦に痩せて画面が余る。
+     一覧性そのものを見せるレイアウトなので、面として立たせる下限を与える。 */
+  min-height: calc(var(--canvas-height) * 0.42);
+  align-content: stretch;
+}
+.grid-list[data-count="4"] { grid-template-columns: repeat(2, 1fr); }
+[data-aspect="4:3"] .grid-list[data-count="5"],
+[data-aspect="4:3"] .grid-list[data-count="6"] { grid-template-columns: repeat(2, 1fr); }
+
+.grid-cell {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: calc(10px * var(--gap-scale));
+  padding: calc(26px * var(--gap-scale) * var(--dens)) calc(28px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+.grid-cell-icon { color: var(--color-accent); display: flex; }
+.grid-cell-icon .layout-icon { width: calc(34px * var(--dens)); height: calc(34px * var(--dens)); }
+.grid-cell-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.3;
+}
+.grid-cell-text {
+  font-size: var(--fs-sub); line-height: 1.5;
+  color: var(--text-secondary); margin: 0;
+}

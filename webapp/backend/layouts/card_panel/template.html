@@ -1,0 +1,18 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <div class="card-grid" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <div class="clip info-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+      <div class="info-card-mark">
+        {% if it['icon'] and icon(it['icon']) %}
+          {{ icon(it['icon']) }}
+        {% else %}
+          <span class="info-card-index">{{ '%02d' % loop.index }}</span>
+        {% endif %}
+      </div>
+      {% if it['label'] %}<div class="info-card-title">{{ it['label'] }}</div>{% endif %}
+      {% if it['text'] %}<p class="info-card-text">{{ it['text'] }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

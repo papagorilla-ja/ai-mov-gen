@@ -1,0 +1,34 @@
+.axis-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: calc(80px * var(--gap-scale));
+  align-items: end;
+}
+.axis-end { display: flex; flex-direction: column; gap: calc(10px * var(--gap-scale)); }
+.axis-end.left { text-align: left; }
+.axis-end.right { text-align: right; }
+.axis-title {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.35;
+}
+.axis-end.left .axis-title { color: var(--color-secondary); }
+.axis-end.right .axis-title { color: var(--color-accent); }
+.axis-text {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-secondary); margin: 0;
+}
+.axis-bar {
+  position: relative;
+  height: 8px; border-radius: 4px;
+  margin: calc(30px * var(--gap-scale)) 0 0;
+  transform-origin: center center;
+  background: linear-gradient(90deg, var(--color-secondary), var(--color-accent));
+}
+/* 両端の丸。ここが「端」であることを示し、間に連続があることを伝える。 */
+.axis-cap {
+  position: absolute; top: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
+  transform: translateY(-50%);
+  border: 4px solid var(--bg-main);
+}
+.axis-cap.left  { left: 0;  background: var(--color-secondary); }
+.axis-cap.right { right: 0; background: var(--color-accent); }

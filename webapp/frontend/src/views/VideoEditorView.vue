@@ -1,35 +1,79 @@
 <template>
-  <v-container fluid class="pa-0" style="height: 100vh; display: flex; flex-direction: column;">
-    <!-- ヘッダー -->
-    <v-toolbar density="compact" class="glass-panel" color="transparent">
+  <v-container fluid class="pa-0 editor-root-container" style="height: 100vh; display: flex; flex-direction: column;">
+    <!-- ─── エディタトップヘッダー ─── -->
+    <v-toolbar density="compact" class="glass-panel editor-top-bar px-2" color="transparent">
       <v-btn
         icon="mdi-arrow-left"
         variant="text"
         size="small"
+        title="プロジェクト画面へ戻る"
         @click="$router.back()"
       />
-      <div class="d-flex align-center gap-2">
+      
+      <div class="d-flex align-center gap-2 mr-4">
         <img :src="logoUrl" alt="Logo" class="editor-logo-img" />
-        <v-toolbar-title class="text-body-1 font-weight-bold">
-          {{ videosStore.currentVideo?.name ?? '動画編集' }}
-        </v-toolbar-title>
+        <div>
+          <div class="text-subtitle-2 font-weight-bold editor-title text-truncate" style="max-width: 320px;">
+            {{ videosStore.currentVideo?.name ?? '動画編集' }}
+          </div>
+        </div>
       </div>
-      <v-chip
-        :color="statusColor(videosStore.currentVideo?.status)"
-        size="small"
-        class="ml-2 font-weight-bold text-uppercase"
-      >
-        {{ videosStore.currentVideo?.status ?? 'draft' }}
-      </v-chip>
+
+      <div class="d-flex align-center gap-2">
+        <!-- 動画ステータスバッジ -->
+        <v-chip
+          :color="statusColor(videosStore.currentVideo?.status)"
+          size="x-small"
+          class="font-weight-bold text-uppercase px-2"
+          variant="flat"
+        >
+          <span v-if="videosStore.currentVideo?.status === 'generating'" class="status-pulse-dot mr-1"></span>
+          {{ videosStore.currentVideo?.status ?? 'draft' }}
+        </v-chip>
+
+        <!-- 再生時間バッジ -->
+        <v-chip size="x-small" variant="tonal" color="info" v-if="videosStore.currentVideo?.duration_sec">
+          <v-icon size="12" class="mr-1">mdi-timer-outline</v-icon>
+          {{ videosStore.currentVideo.duration_sec.toFixed(1) }}s
+        </v-chip>
+      </div>
+
+      <v-spacer />
+
+      <!-- ヘッダークイックガイド -->
+      <div class="text-caption text-medium-emphasis mr-2 d-none d-md-flex align-center">
+        <v-icon size="14" color="#06b6d4" class="mr-1">mdi-movie-edit-outline</v-icon>
+        Studio Timeline Editor
+      </div>
     </v-toolbar>
 
-    <!-- タブ -->
-    <v-tabs v-model="activeTab" class="glass-panel" bg-color="transparent">
-      <v-tab value="scenario" prepend-icon="mdi-script-text-outline">シナリオ</v-tab>
-      <v-tab value="scenes"   prepend-icon="mdi-view-list-outline">シーン</v-tab>
-      <v-tab value="speaker"  prepend-icon="mdi-microphone-outline">話者</v-tab>
-      <v-tab value="style"    prepend-icon="mdi-palette-outline">スタイル</v-tab>
-      <v-tab value="output"   prepend-icon="mdi-export-variant">出力</v-tab>
+    <!-- ─── 制作ワークフロー・ステッパータブ ─── -->
+    <v-tabs v-model="activeTab" class="editor-stepper-tabs glass-panel" bg-color="transparent" density="comfortable" color="primary">
+      <v-tab value="scenario" class="stepper-tab">
+        <span class="step-num">1</span>
+        <v-icon size="16" class="mr-1">mdi-script-text-outline</v-icon>
+        <span>シナリオ作成</span>
+      </v-tab>
+      <v-tab value="scenes" class="stepper-tab">
+        <span class="step-num">2</span>
+        <v-icon size="16" class="mr-1">mdi-view-carousel-outline</v-icon>
+        <span>シーン編集</span>
+      </v-tab>
+      <v-tab value="speaker" class="stepper-tab">
+        <span class="step-num">3</span>
+        <v-icon size="16" class="mr-1">mdi-microphone-outline</v-icon>
+        <span>話者設定</span>
+      </v-tab>
+      <v-tab value="style" class="stepper-tab">
+        <span class="step-num">4</span>
+        <v-icon size="16" class="mr-1">mdi-palette-outline</v-icon>
+        <span>デザインスタイル</span>
+      </v-tab>
+      <v-tab value="output" class="stepper-tab">
+        <span class="step-num">5</span>
+        <v-icon size="16" class="mr-1">mdi-movie-play-outline</v-icon>
+        <span>動画レンダリング出力</span>
+      </v-tab>
     </v-tabs>
 
     <!-- タブコンテンツ -->
@@ -107,29 +151,30 @@
       <!-- シーンタブ -->
       <v-window-item value="scenes" style="height: 100%;">
         <v-row no-gutters style="height: 100%;">
-          <!-- 左側: シーン一覧 -->
-          <v-col cols="12" md="4" class="border-e d-flex flex-column" style="height: 100%; max-height: calc(100vh - 112px);">
-            <div class="pa-4 border-b d-flex justify-between align-center flex-wrap gap-2">
-              <span class="text-subtitle-2 font-weight-bold">シーン一覧 ({{ scenesStore.scenes.length }})</span>
+          <!-- 左側: シーン一覧 (タイムライン) -->
+          <v-col cols="12" md="4" class="border-e d-flex flex-column cyber-scenes-col" style="height: 100%; max-height: calc(100vh - 112px);">
+            <div class="pa-3 border-b d-flex justify-between align-center flex-wrap gap-2 glass-panel">
+              <span class="text-subtitle-2 font-weight-bold d-flex align-center gap-1">
+                <v-icon size="16" color="#06b6d4">mdi-view-sequential-outline</v-icon>
+                シーン構成 ({{ scenesStore.scenes.length }})
+              </span>
               <v-spacer />
               <v-btn
                 prepend-icon="mdi-auto-fix"
                 size="small"
-                color="secondary"
-                variant="outlined"
-                class="mr-2"
+                class="btn-neon-ai mr-2"
                 :loading="scenesStore.bulkGenLoading"
                 :disabled="!scenesStore.scenes.length"
                 @click="handleGenerateAllContent"
               >
-                全シーンの内容をAIで生成
+                ✨ AIで全生成
               </v-btn>
-              <v-btn prepend-icon="mdi-plus" size="small" color="primary" @click="handleAddScene">
+              <v-btn prepend-icon="mdi-plus" size="small" color="primary" variant="tonal" @click="handleAddScene">
                 追加
               </v-btn>
             </div>
             
-            <div class="overflow-y-auto flex-grow-1 pa-2 bg-grey-lighten-4">
+            <div class="overflow-y-auto flex-grow-1 pa-2 cyber-scenes-list-container">
               <v-list class="bg-transparent" v-if="scenesStore.scenes.length">
                 <!-- ドラッグ＆ドロップ -->
                 <draggable
@@ -256,11 +301,31 @@
                   persistent-hint
                   class="mb-3"
                 />
-                <v-select
+                <!-- レイアウトは 40 種規模になるため、名前のドロップダウンでは選べない。
+                     型でまとめたギャラリーから、実物のサムネイルを見て選ぶ。 -->
+                <div class="mb-3">
+                  <div class="text-caption text-medium-emphasis mb-1">レイアウト</div>
+                  <v-btn
+                    block variant="outlined" class="justify-start"
+                    :prepend-icon="layoutIcon(editForm.layout_type)"
+                    append-icon="mdi-view-grid-plus-outline"
+                    @click="layoutPickerOpen = true"
+                  >
+                    <span class="text-body-2">{{ layoutLabel(editForm.layout_type) }}</span>
+                    <v-chip size="x-small" variant="tonal" class="ml-2">
+                      {{ currentTypeDef?.label || '' }}
+                    </v-chip>
+                  </v-btn>
+                  <div class="text-caption text-medium-emphasis mt-1">
+                    {{ currentLayoutDef?.when_to_use || '' }}
+                  </div>
+                </div>
+                <LayoutPicker
+                  v-model:open="layoutPickerOpen"
                   v-model="editForm.layout_type"
-                  :items="layoutOptions"
-                  label="レイアウトタイプ"
-                  class="mb-3"
+                  :item-count="currentItemCount"
+                  :video-id="videoId"
+                  @select="handleLayoutSelected"
                 />
                 <v-select
                   v-model="editForm.speaker_id"
@@ -305,190 +370,23 @@
                     AI でシーン内容を生成
                   </v-btn>
                 </div>
-                <v-text-field v-model="slideContent.title" label="スライドタイトル" class="mb-3" />
-                
-                <v-textarea
-                  v-if="editForm.layout_type === 'bullet_list'"
-                  v-model="slideContent.bullet_points"
-                  label="箇条書き項目 (改行で区切る)"
-                  rows="4"
-                  hint="1行に1項目を入力してください。"
-                  persistent-hint
-                  class="mb-3"
-                />
-                
-                <v-row v-else-if="editForm.layout_type === 'comparison'" class="mb-1">
-                  <v-col cols="12" sm="6">
-                    <v-text-field v-model="slideContent.left_title" label="左の見出し" density="compact" class="mb-2" />
-                    <v-textarea
-                      v-model="slideContent.left_text"
-                      label="左カラムテキスト"
-                      rows="4"
-                      hide-details
-                      class="mb-3"
-                    />
-                  </v-col>
-                  <v-col cols="12" sm="6">
-                    <v-text-field v-model="slideContent.right_title" label="右の見出し" density="compact" class="mb-2" />
-                    <v-textarea
-                      v-model="slideContent.right_text"
-                      label="右カラムテキスト"
-                      rows="4"
-                      hide-details
-                      class="mb-3"
-                    />
-                  </v-col>
-                </v-row>
-
-                <div v-else-if="editForm.layout_type === 'card_panel'" class="mb-4">
-                  <div class="d-flex align-center justify-between mb-2">
-                    <span class="text-subtitle-2 font-weight-bold">カード（2〜4枚推奨）</span>
-                    <v-btn size="small" color="primary" variant="outlined" prepend-icon="mdi-plus" @click="addCard">
-                      カードを追加
-                    </v-btn>
-                  </div>
-                  <div v-if="slideContent.cards && slideContent.cards.length" class="d-flex flex-column gap-2">
-                    <v-card v-for="(card, idx) in slideContent.cards" :key="idx" variant="outlined" class="pa-3 glass-card border-thin">
-                      <div class="d-flex align-center gap-2 mb-2">
-                        <v-text-field v-model="card.title" label="カード見出し (6〜16字)" density="compact" hide-details />
-                        <v-btn icon="mdi-arrow-up" size="x-small" variant="text" :disabled="idx === 0" @click="moveCard(idx, -1)" />
-                        <v-btn icon="mdi-arrow-down" size="x-small" variant="text" :disabled="idx === slideContent.cards.length - 1" @click="moveCard(idx, 1)" />
-                        <v-btn icon="mdi-delete-outline" size="x-small" variant="text" color="error" @click="slideContent.cards.splice(idx, 1)" />
-                      </div>
-                      <v-textarea v-model="card.text" label="説明文 (40〜70字)" rows="2" density="compact" hide-details />
-                    </v-card>
-                  </div>
-                  <div v-else class="text-center py-4 text-caption text-medium-emphasis border border-dashed rounded">
-                    カードがありません。「カードを追加」ボタンから追加してください。
-                  </div>
-                </div>
-
-                <div v-else-if="editForm.layout_type === 'table'" class="mb-4">
-                  <v-text-field v-model="slideContent.headers" label="見出し行 (カンマ区切り)" placeholder="遺跡, 時期, 特徴" class="mb-2" />
-                  <v-textarea v-model="slideContent.rows" label="データ行 (1行=1レコード / カンマ区切り)"
-                              placeholder="三内丸山, 前期〜中期, 大型掘立柱建物&#10;亀ヶ岡, 晩期, 遮光器土偶" rows="5" />
-                  <div class="text-caption text-medium-emphasis">※ 各行の項目数は見出し行と揃えてください。</div>
-                </div>
-
-                <div v-else-if="editForm.layout_type === 'graph_chart'" class="mb-4">
-                  <v-select v-model="slideContent.chartType" :items="[
-                      { title: '棒グラフ (bar)', value: 'bar' },
-                      { title: '折れ線 (line)', value: 'line' },
-                      { title: '円グラフ (pie)', value: 'pie' }]"
-                      label="グラフ種別" class="mb-2" />
-                  <v-text-field v-model="slideContent.chartLabels" label="ラベル (カンマ区切り)" placeholder="前期, 中期, 後期" class="mb-2" />
-                  <v-text-field v-model="slideContent.chartValues" label="数値 (カンマ区切り)" placeholder="120, 260, 180" class="mb-2" />
-                  <v-text-field v-model="slideContent.chartUnit" label="単位・凡例" placeholder="遺跡数（概数）" />
-                  <div class="text-caption text-medium-emphasis">※ ラベルと数値は同じ個数にしてください。</div>
-                </div>
-
-                <div v-else-if="editForm.layout_type === 'chat_dialog'" class="mb-4">
-                  <div class="d-flex align-center mb-2">
-                    <span class="text-subtitle-2 font-weight-bold">対話行リスト</span>
-                    <v-spacer />
-                    <v-btn size="small" color="primary" prepend-icon="mdi-plus" variant="outlined" @click="addDialogLine">
-                      行を追加
-                    </v-btn>
-                  </div>
-                  
-                  <div v-if="slideContent.lines && slideContent.lines.length" class="d-flex flex-column gap-2">
-                    <div
-                      v-for="(line, idx) in slideContent.lines"
-                      :key="idx"
-                      class="d-flex align-center gap-2 border pa-2 rounded"
-                    >
-                      <v-btn-toggle
-                        v-model="line.speaker"
-                        mandatory
-                        density="compact"
-                        color="primary"
-                      >
-                        <v-btn value="A" size="small">話者 A</v-btn>
-                        <v-btn value="B" size="small">話者 B</v-btn>
-                      </v-btn-toggle>
-                      
-                      <v-text-field
-                        v-model="line.text"
-                        placeholder="セリフを入力してください"
-                        hide-details
-                        density="compact"
-                      />
-                      
-                      <v-btn
-                        icon="mdi-arrow-up"
-                        size="x-small"
-                        variant="text"
-                        :disabled="idx === 0"
-                        @click="moveDialogLine(idx, -1)"
-                      />
-                      <v-btn
-                        icon="mdi-arrow-down"
-                        size="x-small"
-                        variant="text"
-                        :disabled="idx === slideContent.lines.length - 1"
-                        @click="moveDialogLine(idx, 1)"
-                      />
-                      <v-btn
-                        icon="mdi-delete-outline"
-                        color="error"
-                        size="x-small"
-                        variant="text"
-                        @click="removeDialogLine(idx)"
-                      />
-                    </div>
-                  </div>
-                  <div v-else class="text-center py-4 text-caption text-medium-emphasis border border-dashed rounded">
-                    対話行がありません。「行を追加」ボタンからセリフを追加してください。
-                  </div>
-                </div>
-
-                <v-textarea
-                  v-else
-                  v-model="slideContent.body"
-                  label="本文テキスト"
-                  rows="4"
-                  class="mb-3"
-                />
-
-                <v-text-field
-                  v-if="editForm.layout_type === 'section_header'"
-                  v-model="slideContent.subtitle"
-                  label="サブタイトル"
-                  class="mb-3"
+                <!-- 入力欄はレイアウトごとに書かない。型のスキーマ（/api/v1/layouts）から
+                     自動生成する。レイアウトを足してもこの画面は変更不要。 -->
+                <SceneContentForm
+                  v-model="slideContent"
+                  :type-def="currentTypeDef"
+                  :uploading-slot="uploadingImageSlot"
+                  @upload-image="handleSlideImageUpload"
                 />
 
                 <v-textarea
-                  v-if="['text_left_image_right', 'full_image'].includes(editForm.layout_type) && slideContent.image_description"
-                  v-model="slideContent.image_description"
-                  label="推奨画像の内容（AI提案）"
-                  rows="2"
-                  readonly
-                  hint="画像生成AIに渡す意図の参考"
-                  persistent-hint
+                  v-if="slideContent.image_prompt_note"
+                  v-model="slideContent.image_prompt_note"
+                  label="画像の狙い（AI の補足）"
+                  rows="2" readonly persistent-hint
+                  hint="画像生成 AI に渡した意図の控え"
                   class="mb-3"
                 />
-
-                <div v-if="['text_left_image_right', 'full_image'].includes(editForm.layout_type)" class="mb-3">
-                  <div class="text-subtitle-2 font-weight-bold mb-1">スライド画像設定</div>
-                  <v-file-input
-                    label="スライド画像を選択してアップロード"
-                    accept="image/*"
-                    prepend-icon="mdi-camera-plus-outline"
-                    density="compact"
-                    variant="outlined"
-                    hide-details
-                    :loading="slideImageUploading"
-                    class="mb-2"
-                    @change="(e) => handleSlideImageUpload(e.target.files?.[0])"
-                  />
-                  <v-text-field
-                    v-model="slideContent.image_src"
-                    label="画像パス (直接指定・確認用)"
-                    hint="例: assets/images/scene_1/slot1.jpg"
-                    persistent-hint
-                    density="compact"
-                  />
-                </div>
               </v-card>
 
               <v-card class="pa-4 glass-card">
@@ -935,6 +833,10 @@ import ScenarioRouteC from '@/components/ScenarioRouteC.vue'
 import { useScenarioStore } from '@/stores/scenario'
 import { scenarioApi } from '@/api/scenario'
 import { assetApi } from '@/api/asset'
+import LayoutPicker from '@/components/LayoutPicker.vue'
+import SceneContentForm from '@/components/SceneContentForm.vue'
+import { useLayoutsStore } from '@/stores/layouts'
+import { layoutApi } from '@/api/layout'
 import { useUiStore } from '@/stores/ui'
 import { api } from '@/api/index.js'
 import logoUrl from '@/assets/logo.jpg'
@@ -991,59 +893,107 @@ const editForm = reactive({
   speaker_b_id: null
 })
 
-const slideContent = reactive({
-  title: '',
-  body: '',
-  subtitle: '',
-  bullet_points: '',
-  image_src: '',
-  image_description: '',
-  image_prompt_note: '',
-  left_title: '',
-  right_title: '',
-  left_text: '',
-  right_text: '',
-  lines: [],
-  cards: [],
-  headers: '',
-  rows: '',
-  chartType: 'bar',
-  chartLabels: '',
-  chartValues: '',
-  chartUnit: ''
+// スライドの内容。型のスキーマに沿った形（/api/v1/layouts が配る定義と対）で、
+// バックエンドが normalize 済みのものをそのまま持つ。
+// 以前はレイアウト別のフラットな項目（left_title, chartLabels …）を平置きしていたが、
+// レイアウトが増えるたびにここへ項目を足す必要があり、
+// レイアウトを切り替えると入力が消える原因にもなっていた。
+const slideContent = ref({})
+const layoutPickerOpen = ref(false)
+const uploadingImageSlot = ref(0)
+
+const layoutsStore = useLayoutsStore()
+const currentLayoutDef = computed(() => layoutsStore.byId[editForm.layout_type] || null)
+const currentTypeDef = computed(() => layoutsStore.typeById[currentLayoutDef.value?.type] || null)
+// レイアウトの自動差し替え判定と、ギャラリーの「いまの内容で使える」表示に使う件数
+const currentItemCount = computed(() => {
+  const path = currentTypeDef.value?.collection
+  if (!path) return 0
+  const node = path.split('.').reduce((acc, key) => (acc ? acc[key] : undefined), slideContent.value)
+  return Array.isArray(node) ? node.length : 0
 })
 
-const slideImageUploading = ref(false)
+// アイコンと色はレイアウト（40 種）ではなく「型」（14 種）に紐づける。
+// レイアウトを足しても、その型の見た目をそのまま受け継ぐので追記が要らない。
+const TYPE_ICONS = {
+  statement: 'mdi-text-short',      list: 'mdi-format-list-bulleted',
+  sequence: 'mdi-arrow-right-bold-outline', contrast: 'mdi-compare',
+  hierarchy: 'mdi-triangle-outline', cycle: 'mdi-autorenew',
+  matrix: 'mdi-view-grid-outline',  sets: 'mdi-circle-multiple-outline',
+  table: 'mdi-table',               chart: 'mdi-chart-bar',
+  formula: 'mdi-function-variant',  media: 'mdi-image',
+  dialog: 'mdi-chat-processing',    cover: 'mdi-format-header-1',
+}
+const TYPE_COLORS = {
+  statement: 'blue-grey', list: 'teal',     sequence: 'indigo',  contrast: 'cyan',
+  hierarchy: 'amber',     cycle: 'green',   matrix: 'deep-purple', sets: 'purple',
+  table: 'brown',         chart: 'pink',    formula: 'lime',     media: 'blue',
+  dialog: 'light-green',  cover: 'orange',
+}
 
-async function handleSlideImageUpload(file) {
-  if (!file || !selectedScene.value) return
-  slideImageUploading.value = true
+function layoutType(id) {
+  return layoutsStore.byId[id]?.type || ''
+}
+function layoutIcon(id) {
+  return TYPE_ICONS[layoutType(id)] ?? 'mdi-layers'
+}
+function layoutLabel(id) {
+  return layoutsStore.byId[id]?.label ?? id
+}
+function layoutColor(id) {
+  return TYPE_COLORS[layoutType(id)] ?? 'grey'
+}
+
+/**
+ * ギャラリーでレイアウトを選んだとき。
+ *
+ * 同じ型の中なら内容はそのまま使えるので何もしない。
+ * 型をまたぐときはサーバー側で移し替え、表示されなくなる件数があれば確認する。
+ */
+async function handleLayoutSelected(layout) {
+  const fromLayout = selectedScene.value?.layout_type || 'text_only'
+  if (layoutType(fromLayout) === layout.type) return
   try {
-    const { data } = await assetApi.upload(selectedScene.value.id, 1, file, 'image')
+    const { data } = await layoutApi.convert(fromLayout, layout.id, slideContent.value)
+    if (data.lost_count > 0) {
+      const ok = window.confirm(
+        `「${layout.label}」は ${layout.max} 件までのため、${data.lost_count} 件が表示されなくなります。\n` +
+        'このまま切り替えますか？（保存するまでは元に戻せます）'
+      )
+      if (!ok) {
+        editForm.layout_type = fromLayout
+        return
+      }
+    }
+    slideContent.value = data.content
+  } catch (e) {
+    ui.notifyError('レイアウトの切り替えに失敗しました: ' + (e.response?.data?.detail || e.message))
+    editForm.layout_type = fromLayout
+  }
+}
+
+
+async function handleSlideImageUpload({ slot = 1, file } = {}) {
+  if (!file || !selectedScene.value) return
+  uploadingImageSlot.value = slot
+  try {
+    const { data } = await assetApi.upload(selectedScene.value.id, slot, file, 'image')
     if (data && data.file_path) {
-      slideContent.image_src = data.file_path
+      // images[] はレイアウトが受け取る画像スロット。slot は 1 始まり。
+      if (!Array.isArray(slideContent.value.images)) slideContent.value.images = []
+      while (slideContent.value.images.length < slot) {
+        slideContent.value.images.push({ src: '', caption: '' })
+      }
+      slideContent.value.images[slot - 1].src = data.file_path
       ui.notify('スライド用画像をアップロードしました。')
     }
   } catch (e) {
     ui.notifyError('画像のアップロードに失敗しました: ' + (e.response?.data?.detail || e.message))
   } finally {
-    slideImageUploading.value = false
+    uploadingImageSlot.value = 0
   }
 }
 
-const layoutOptions = [
-  { title: 'テキストのみ', value: 'text_only' },
-  { title: '左テキスト右画像', value: 'text_left_image_right' },
-  { title: 'フルスクリーン画像', value: 'full_image' },
-  { title: '画像ギャラリー', value: 'image_gallery' },
-  { title: '箇条書きリスト', value: 'bullet_list' },
-  { title: 'セクション区切り', value: 'section_header' },
-  { title: '左右比較', value: 'comparison' },
-  { title: '対話吹き出し', value: 'chat_dialog' },
-  { title: 'カードパネル', value: 'card_panel' },
-  { title: '表', value: 'table' },
-  { title: 'グラフ', value: 'graph_chart' }
-]
 
 const speakerOptions = computed(() => {
   const options = [{ title: 'デフォルト (オーバーライドなし)', value: null }]
@@ -1116,6 +1066,9 @@ const handleGenerateAllContent = async () => {
 }
 
 onMounted(async () => {
+  // レイアウトのカタログ（型・見せ方・編集フォームの項目定義）。
+  // 画面のあちこちで参照するので、シーンを選ぶ前に読み込んでおく。
+  await layoutsStore.fetchCatalog()
   await videosStore.fetchOne(videoId)
   await videosStore.fetchStyle(videoId)
   await scenesStore.fetchAll(videoId)
@@ -1200,16 +1153,6 @@ onBeforeUnmount(() => {
   generationStore.disconnectWebSocket()
 })
 
-function addCard() {
-  if (!slideContent.cards) slideContent.cards = []
-  slideContent.cards.push({ title: '', text: '' })
-}
-function moveCard(idx, dir) {
-  const arr = slideContent.cards
-  const t = idx + dir
-  if (t < 0 || t >= arr.length) return
-  ;[arr[idx], arr[t]] = [arr[t], arr[idx]]
-}
 
 function applySlideContentFromScene(scene) {
   if (!scene) return
@@ -1218,58 +1161,18 @@ function applySlideContentFromScene(scene) {
   editForm.narration_text = scene.narration_text || ''
   editForm.outline_summary = scene.outline_summary || editForm.outline_summary
 
-  rawSlideContent.value = {}
-  slideContent.title = ''
-  slideContent.body = ''
-  slideContent.subtitle = ''
-  slideContent.bullet_points = ''
-  slideContent.image_src = ''
-  slideContent.image_description = ''
-  slideContent.image_prompt_note = ''
-  slideContent.left_title = ''
-  slideContent.right_title = ''
-  slideContent.left_text = ''
-  slideContent.right_text = ''
-  slideContent.lines = []
-  slideContent.cards = []
-  slideContent.headers = ''
-  slideContent.rows = ''
-  slideContent.chartType = 'bar'
-  slideContent.chartLabels = ''
-  slideContent.chartValues = ''
-  slideContent.chartUnit = ''
-
+  // 内容はバックエンドが型のスキーマへ正規化済み。画面側でほぐし直さない
+  // （ほぐすとレイアウトごとの分岐が復活し、型を増やすたびにここが膨らむ）。
+  let parsed = {}
   if (scene.slide_content_json) {
     try {
-      const parsed = JSON.parse(scene.slide_content_json)
-      rawSlideContent.value = parsed
-      slideContent.title = parsed.title || ''
-      slideContent.body = parsed.body || ''
-      slideContent.subtitle = parsed.subtitle || ''
-      slideContent.image_src = parsed.image_src || ''
-      slideContent.image_description = parsed.image_description || ''
-      slideContent.image_prompt_note = parsed.image_prompt_note || ''
-      slideContent.left_title = parsed.left_title || ''
-      slideContent.right_title = parsed.right_title || ''
-      slideContent.left_text = parsed.left_text || ''
-      slideContent.right_text = parsed.right_text || ''
-      slideContent.lines = parsed.lines || []
-      slideContent.bullet_points = Array.isArray(parsed.bullet_points)
-        ? parsed.bullet_points.join('\n') : (parsed.bullet_points || '')
-      slideContent.cards = Array.isArray(parsed.cards)
-        ? parsed.cards.map(c => ({ title: c.title || '', text: c.text || '' })) : []
-      slideContent.headers = Array.isArray(parsed.headers) ? parsed.headers.join(', ') : ''
-      slideContent.rows = Array.isArray(parsed.rows)
-        ? parsed.rows.map(r => (Array.isArray(r) ? r.join(', ') : '')).join('\n') : ''
-      const ch = parsed.chart || {}
-      slideContent.chartType = ch.type || 'bar'
-      slideContent.chartLabels = Array.isArray(ch.labels) ? ch.labels.join(', ') : ''
-      slideContent.chartValues = Array.isArray(ch.values) ? ch.values.join(', ') : ''
-      slideContent.chartUnit = ch.unit || ''
+      parsed = JSON.parse(scene.slide_content_json) || {}
     } catch (e) {
-      console.error(e)
+      console.warn('slide_content_json のパースに失敗しました', e)
     }
   }
+  rawSlideContent.value = parsed
+  slideContent.value = { ...parsed }
 }
 
 async function generateImagePrompt() {
@@ -1400,43 +1303,8 @@ async function handleSaveScene() {
   if (!selectedScene.value) return
   saveLoading.value = true
   try {
-    const slideJsonObj = {
-      ...(rawSlideContent.value || {}),
-      title: slideContent.title,
-      body: slideContent.body,
-      subtitle: slideContent.subtitle,
-      image_src: slideContent.image_src,
-      image_description: slideContent.image_description,
-      left_title: slideContent.left_title,
-      right_title: slideContent.right_title,
-      left_text: slideContent.left_text,
-      right_text: slideContent.right_text,
-      lines: slideContent.lines ? slideContent.lines.map(line => ({ speaker: line.speaker, text: line.text })) : [],
-      bullet_points: slideContent.bullet_points
-        ? slideContent.bullet_points.split('\n').map(s => s.trim()).filter(Boolean) : []
-    }
-
-    if (editForm.layout_type === 'card_panel') {
-      slideJsonObj.cards = (slideContent.cards || [])
-        .filter(c => (c.title || '').trim() || (c.text || '').trim())
-        .map(c => ({ title: c.title || '', text: c.text || '' }))
-    }
-    if (editForm.layout_type === 'table') {
-      slideJsonObj.headers = slideContent.headers
-        ? slideContent.headers.split(',').map(s => s.trim()).filter(Boolean) : []
-      slideJsonObj.rows = slideContent.rows
-        ? slideContent.rows.split('\n').map(line => line.split(',').map(s => s.trim())).filter(r => r.some(Boolean))
-        : []
-    }
-    if (editForm.layout_type === 'graph_chart') {
-      slideJsonObj.chart = {
-        type: slideContent.chartType || 'bar',
-        labels: slideContent.chartLabels ? slideContent.chartLabels.split(',').map(s => s.trim()).filter(Boolean) : [],
-        values: slideContent.chartValues
-          ? slideContent.chartValues.split(',').map(s => Number(s.trim())).filter(n => !Number.isNaN(n)) : [],
-        unit: slideContent.chartUnit || ''
-      }
-    }
+    // レイアウト別の組み立てはしない。フォームが型のスキーマどおりの形を保っている。
+    const slideJsonObj = { ...slideContent.value, title: slideContent.value.title ?? editForm.title }
 
     const payload = {
       title: editForm.title,
@@ -1552,56 +1420,8 @@ function statusColor(status) {
   }[status] ?? 'default'
 }
 
-function layoutIcon(type) {
-  const map = {
-    text_only:              'mdi-text-short',
-    text_left_image_right:  'mdi-view-split-vertical',
-    full_image:             'mdi-image',
-    bullet_list:            'mdi-format-list-bulleted',
-    section_header:         'mdi-format-header-1',
-    comparison:             'mdi-compare',
-    chat_dialog:            'mdi-chat-processing',
-    card_panel:             'mdi-view-grid',
-    table:                  'mdi-table',
-    graph_chart:            'mdi-chart-bar',
-    image_gallery:          'mdi-image-multiple',
-  }
-  return map[type] ?? 'mdi-layers'
-}
 
-function layoutLabel(type) {
-  const map = {
-    text_only:              'テキスト',
-    text_left_image_right:  '画像右',
-    full_image:             '全画像',
-    bullet_list:            '箇条書き',
-    section_header:         '区切り',
-    comparison:             '比較',
-    chat_dialog:            '対話',
-    card_panel:             'カード',
-    table:                  '表',
-    graph_chart:            'グラフ',
-    image_gallery:          '画像ギャラリー',
-  }
-  return map[type] ?? type
-}
 
-function layoutColor(type) {
-  const map = {
-    text_only:              'blue-grey',
-    text_left_image_right:  'blue',
-    full_image:             'deep-purple',
-    bullet_list:            'teal',
-    section_header:         'orange',
-    comparison:             'cyan',
-    chat_dialog:            'green',
-    card_panel:             'indigo',
-    table:                  'brown',
-    graph_chart:            'pink',
-    image_gallery:          'light-blue',
-  }
-  return map[type] ?? 'grey'
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -1617,26 +1437,8 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-function addDialogLine() {
-  if (!slideContent.lines) {
-    slideContent.lines = []
-  }
-  slideContent.lines.push({ speaker: 'A', text: '' })
-}
 
-function removeDialogLine(index) {
-  if (!slideContent.lines) return
-  slideContent.lines.splice(index, 1)
-}
 
-function moveDialogLine(index, direction) {
-  if (!slideContent.lines) return
-  const targetIndex = index + direction
-  if (targetIndex < 0 || targetIndex >= slideContent.lines.length) return
-  const temp = slideContent.lines[index]
-  slideContent.lines[index] = slideContent.lines[targetIndex]
-  slideContent.lines[targetIndex] = temp
-}
 
 function handleAssetsChange(assets) {
   // 指示 P1-5: 画像指定の一本化
@@ -1652,6 +1454,74 @@ function handleAssetsChange(assets) {
 </script>
 
 <style scoped>
+.editor-root-container {
+  background: #090a14;
+}
+
+.editor-top-bar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+.editor-title {
+  color: #f1f5f9;
+  letter-spacing: -0.2px;
+}
+
+/* ─── ステッパータブスタイル ─── */
+.editor-stepper-tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.stepper-tab {
+  text-transform: none !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0px !important;
+  padding: 0 18px !important;
+  min-height: 44px !important;
+  transition: all 0.2s ease !important;
+}
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.65rem;
+  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.7);
+}
+:deep(.v-tab--selected) .step-num {
+  background: #06b6d4;
+  color: #090a14;
+  font-weight: 800;
+  box-shadow: 0 0 8px #06b6d4;
+}
+
+/* ─── AI 専用ネオンボタン ─── */
+.btn-neon-ai {
+  background: linear-gradient(135deg, #06b6d4 0%, #a855f7 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.35) !important;
+  transition: all 0.2s ease !important;
+}
+.btn-neon-ai:hover {
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* ─── タイムライン & シーン一覧 ─── */
+.cyber-scenes-col {
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(12, 14, 26, 0.4);
+}
+.cyber-scenes-list-container {
+  background: rgba(9, 10, 20, 0.5);
+}
+
 .cursor-grab {
   cursor: grab;
 }
@@ -1661,21 +1531,23 @@ function handleAssetsChange(assets) {
 
 /* シーンサムネイル */
 .scene-thumb {
-  width: 40px;
-  height: 30px;
+  width: 42px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.thumb-text_only             { background: linear-gradient(135deg, #546e7a 0%, #78909c 100%); }
-.thumb-text_left_image_right { background: linear-gradient(135deg, #1565c0 0%, #42a5f5 100%); }
-.thumb-full_image            { background: linear-gradient(135deg, #6a1b9a 0%, #ab47bc 100%); }
-.thumb-bullet_list           { background: linear-gradient(135deg, #00695c 0%, #26a69a 100%); }
-.thumb-section_header        { background: linear-gradient(135deg, #e65100 0%, #ffa726 100%); }
-.thumb-comparison            { background: linear-gradient(135deg, #006064 0%, #26c6da 100%); }
-.thumb-chat_dialog           { background: linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%); }
+.thumb-text_only             { background: linear-gradient(135deg, #475569 0%, #64748b 100%); }
+.thumb-text_left_image_right { background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); }
+.thumb-full_image            { background: linear-gradient(135deg, #7c3aed 0%, #c084fc 100%); }
+.thumb-bullet_list           { background: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%); }
+.thumb-section_header        { background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%); }
+.thumb-comparison            { background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%); }
+.thumb-chat_dialog           { background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%); }
 
 .min-width-0 { min-width: 0; }
 
@@ -1683,8 +1555,18 @@ function handleAssetsChange(assets) {
   width: 26px;
   height: 26px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(34, 211, 238, 0.3);
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+}
+
+.status-pulse-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #fbbf24;
+  box-shadow: 0 0 6px #fbbf24;
+  animation: pulse 1.5s infinite;
 }
 </style>

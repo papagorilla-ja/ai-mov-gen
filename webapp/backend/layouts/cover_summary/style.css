@@ -1,0 +1,32 @@
+.summary-subtitle {
+  font-size: var(--fs-body); color: var(--text-secondary);
+  margin: calc(-18px * var(--gap-scale)) 0 calc(26px * var(--gap-scale));
+}
+.summary-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: calc(18px * var(--gap-scale) * var(--gap-dens));
+}
+.summary-item {
+  display: flex; align-items: center; gap: calc(24px * var(--gap-scale));
+  padding: calc(22px * var(--gap-scale) * var(--dens)) calc(30px * var(--gap-scale));
+  border-radius: var(--surface-radius);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+/* チェックは「済んだこと」ではなく「持ち帰ること」の印。
+   達成感を出したいので主要色ではなくアクセント色で置く。 */
+.summary-check {
+  flex: none; display: flex;
+  width: calc(46px * var(--dens)); height: calc(46px * var(--dens));
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: var(--on-accent);
+  background: var(--color-accent);
+}
+.summary-check .layout-icon { width: 60%; height: 60%; }
+.summary-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.45;
+}

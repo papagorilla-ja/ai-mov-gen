@@ -1,0 +1,27 @@
+.checklist {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: calc(16px * var(--gap-scale) * var(--gap-dens));
+}
+.check-item {
+  display: flex; align-items: center; gap: calc(24px * var(--gap-scale));
+  padding: calc(20px * var(--gap-scale) * var(--dens)) calc(28px * var(--gap-scale));
+  border-radius: calc(var(--surface-radius) - 6px);
+  background: var(--surface-bg);
+  border: var(--surface-border);
+  backdrop-filter: var(--surface-blur);
+}
+.check-box {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: calc(42px * var(--dens)); height: calc(42px * var(--dens));
+  border-radius: 8px;
+  border: 2px solid rgba(var(--color-accent-rgb), 0.55);
+  color: var(--color-accent);
+}
+.check-box .layout-icon { width: 66%; height: 66%; }
+.check-body { display: flex; flex-direction: column; gap: calc(4px * var(--gap-scale)); min-width: 0; }
+.check-label {
+  font-family: var(--font-heading); font-weight: 700;
+  font-size: var(--fs-item); color: var(--text-primary); line-height: 1.35;
+}
+.check-text { font-size: var(--fs-sub); line-height: 1.5; color: var(--text-secondary); }

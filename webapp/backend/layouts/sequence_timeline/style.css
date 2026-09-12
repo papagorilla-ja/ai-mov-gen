@@ -1,0 +1,40 @@
+.timeline {
+  position: relative;
+  flex: 1; min-height: calc(var(--canvas-height) * 0.40);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 calc(40px * var(--gap-scale));
+}
+.timeline-rail {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 4px; border-radius: 2px;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  opacity: 0.55;
+}
+.timeline-point {
+  position: relative; z-index: 1;
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
+/* 時期は線の上、起きたことは線の下。上下に分けると、
+   どこまでが「いつ」でどこからが「何が」かを読み違えない。 */
+.timeline-when {
+  font-family: var(--font-heading); font-weight: 800;
+  font-size: var(--fs-item); color: var(--color-accent);
+  margin-bottom: calc(18px * var(--gap-scale));
+}
+.timeline-dot {
+  width: calc(22px * var(--dens)); height: calc(22px * var(--dens));
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 4px solid var(--bg-main);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.45);
+}
+.timeline-what {
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  color: var(--text-primary);
+  margin: calc(18px * var(--gap-scale)) 0 0;
+  padding: 0 calc(8px * var(--gap-scale));
+}

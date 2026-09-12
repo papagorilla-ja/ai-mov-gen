@@ -1,0 +1,16 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area" data-fit>
+  <ul class="checklist" data-count="{{ count }}">
+    {% for it in c['items'] %}
+    <li class="clip check-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+      {# 角丸の四角＋チェック印。まとめ（cover_summary）の丸い塗り印とは形を変えている。
+         四角の枠は「これから照合する項目」、丸い塗りは「持ち帰る結論」を表す。 #}
+      <span class="check-box">{{ icon('確認') }}</span>
+      <span class="check-body">
+        {% if it['label'] %}<span class="check-label">{{ it['label'] }}</span>{% endif %}
+        {% if it['text'] %}<span class="check-text">{{ it['text'] }}</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>

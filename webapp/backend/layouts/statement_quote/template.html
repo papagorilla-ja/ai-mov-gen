@@ -1,0 +1,15 @@
+{% include "_partials/head.html" %}
+<div class="slide-body-area quote-area" data-fit>
+  <div class="clip quote-block" data-seq="head" data-seq-offset="0.3" data-anim="rise">
+    {# 引用符は装飾ではなく「これは引用だ」という標識。
+       読み上げの対象ではないので aria-hidden で音声側から外す。 #}
+    <span class="quote-mark" aria-hidden="true">“</span>
+    <p class="quote-lead">{{ c['lead'] or c['title'] }}</p>
+  </div>
+  {% if c['body'] %}
+  <p class="clip quote-body" data-seq="head" data-seq-offset="0.6" data-anim="fade">{{ c['body'] }}</p>
+  {% endif %}
+  {% if c['note'] %}
+  <p class="clip quote-source" data-seq="tail" data-anim="fade">{{ c['note'] }}</p>
+  {% endif %}
+</div>
