@@ -40,7 +40,111 @@
   // 旧バージョン互換のフォールバック（__timelines を配列で上書きしないこと）
   window.__timeline = tl;
 
-  // --- 2. シーン切替トランジション ---
+  // --- 2. 背景モチーフの動き ---
+  //
+  // 背景の 2 層（.stage-bg-motif / .stage-bg-glow）を、動画の尺いっぱいかけて
+  // ごくゆっくり動かす。静止した背景だと、本文が出入りするだけの平板な絵になる。
+  //
+  // CSS アニメーションは使わない。hyperframes はタイムラインを任意の時刻へ
+  // シークしてから 1 枚ずつ捕獲するため、実時間で進む CSS アニメーションは
+  // フレームごとに位相がばらつき、背景だけが不規則に震える動画になってしまう。
+  // GSAP のタイムラインに載せれば「時刻 → 見た目」が一意に決まる。
+  // （Chart.js を animation: false にしているのと同じ理由。）
+  //
+  // 速さは「言われないと気づかない」程度に留める。背景が目立つと本文と
+  // 注意を奪い合い、読み取りの邪魔になる。目安は 1 周 30 秒以上。
+  //
+  // 無限リピート（repeat: -1）は使わない。タイムラインの尺が Infinity になり、
+  // hyperframes が総尺を測れなくなるため。往復させたいものは回数を計算して渡す。
+
+  // 動きの速さ。いずれも「1 周期に何秒かけるか」で持つ。
+  // 尺で割った移動量にせず周期で持つのは、15 分の動画でも 1 分の動画でも
+  // 「見た目の速さ」を同じにするため。
+  const GRID_TILE_PX = 60;      // CSS の background-size と揃える
+  const GRID_CYCLE_SEC = 40;    // 方眼が 1 タイル進む秒数
+  const WAVE_STRIPE_PX = 58;    // CSS の repeating-linear-gradient と揃える
+  const WAVE_CYCLE_SEC = 30;    // 縞が 1 本ぶん進む秒数
+  const DOT_HALF_SEC = 7;       // 点の明滅の半周期
+  const MESH_HALF_SEC = 45;     // 色玉が片道を巡る秒数
+  const NOISE_HALF_SEC = 50;    // 光が片道ぶん広がる秒数
+
+  /** 模様を一定の速さで流す。1 周期の距離と秒数から総移動量を決める。 */
+  function addDrift(target, dx, dy, cycleSec, total) {
+    const k = total / cycleSec;
+    tl.fromTo(target,
+      { backgroundPosition: "0px 0px" },
+      {
+        backgroundPosition: `${(dx * k).toFixed(1)}px ${(dy * k).toFixed(1)}px`,
+        duration: total, ease: "none",
+      }, 0);
+  }
+
+  /**
+   * 動画の尺いっぱいを往復で埋める。
+   *
+   * 半周期を「尺を割り切れる値」へ丸めているのは、端数が出ると tween が
+   * 動画の尺をはみ出し、タイムラインの総尺が動画より長くなってしまうため。
+   */
+  function addOscillation(target, from, to, halfSec, total) {
+    const runs = Math.max(1, Math.round(total / halfSec));
+    tl.fromTo(target, from, {
+      ...to, duration: total / runs, ease: "sine.inOut", repeat: runs - 1, yoyo: true,
+    }, 0);
+  }
+
+  const MOTIF_MOTIONS = {
+    // 方眼を斜めに流す。
+    grid: (motif, glow, total) =>
+      addDrift(motif, GRID_TILE_PX, GRID_TILE_PX, GRID_CYCLE_SEC, total),
+
+    // 色玉を巡回させる。玉は 1 枚の背景画像なので、層ごと回して動かす。
+    // 層は inset:-80px と blur(40px) で画面より大きいため、この程度の
+    // 回転・拡大では縁が入り込まない。角度を増やすときは縁が出ないか要確認。
+    mesh: (motif, glow, total) =>
+      addOscillation(motif, { rotation: -3, scale: 1.06 }, { rotation: 3, scale: 1.12 },
+                     MESH_HALF_SEC, total),
+
+    // 点の明滅。位置を動かすとタイルの継ぎ目が目に付くので、濃さだけ変える。
+    dots: (motif, glow, total) =>
+      addOscillation(motif, { opacity: 0.7 }, { opacity: 1 }, DOT_HALF_SEC, total),
+
+    // 斜めの帯を流す。
+    waves: (motif, glow, total) =>
+      addDrift(motif, WAVE_STRIPE_PX, -WAVE_STRIPE_PX, WAVE_CYCLE_SEC, total),
+
+    // 粒そのものは動かさない。1px 単位の粒がずれるとフレームごとにちらつき、
+    // 見づらいうえに動画の圧縮効率も落ちる。代わりに光の層だけ広げる。
+    noise: (motif, glow, total) =>
+      addOscillation(glow, { scale: 1, opacity: 0.8 }, { scale: 1.12, opacity: 1 },
+                     NOISE_HALF_SEC, total),
+
+    // 無地は何もしない。「内容に集中させたい」ときの選択肢なので動かさない。
+    plain: null,
+  };
+
+  function registerMotifMotion() {
+    const motif = document.querySelector(".stage-bg-motif");
+    const glow = document.querySelector(".stage-bg-glow");
+    if (!motif || !glow) return;
+
+    // モチーフの種類は #stage の motif-* クラスが持つ（design_tokens.py が付ける）。
+    const name = Array.from(stage.classList)
+      .find((c) => c.startsWith("motif-"))
+      ?.slice("motif-".length);
+    // 尺が取れないときは動かさない（0 秒の tween は GSAP が即座に完了扱いにする）
+    if (!(totalDuration > 0)) return;
+
+    const motion = name ? MOTIF_MOTIONS[name] : undefined;
+    if (motion === undefined) {
+      console.warn(`[motif] 未知の背景モチーフ "${name}" です。背景は静止のままにします`);
+      return;
+    }
+    if (motion) motion(motif, glow, totalDuration);
+  }
+
+  registerMotifMotion();
+
+  // --- 3. シーン切替トランジション ---
   //
   // シーン同士は時間軸上で重ならない（composition.py が尺を順に積むだけ）ため、
   // 「持ち時間の中で退場を終え、次のシーンが登場する」方式で表現する。
@@ -110,7 +214,7 @@
     tl.set(el, { display: "none", opacity: 0, pointerEvents: "none" }, start + duration);
   }
 
-  // --- 3. アニメーションの登録 ---
+  // --- 4. アニメーションの登録 ---
   //
   // 以前はクラス名（info-card / bullet-item / dialog-line …）で分岐していたが、
   // レイアウトを 1 つ増やすたびにこのファイルへ if を足す必要があった。
@@ -263,7 +367,7 @@
     }
   });
 
-  // --- 4. 実測オートフィット（自動適応の第 3 層） ---
+  // --- 5. 実測オートフィット（自動適応の第 3 層） ---
   //
   // 件数ごとの CSS 密度段階で大半は収まるが、「3 項目だが各 80 文字」のような
   // 文字数の振れまでは予測できない。描画後に実測し、はみ出していれば縮小する。
@@ -327,7 +431,7 @@
   // Keep a playhead updater that triggers UI rendering
   let activeSlide = null;
 
-  // --- 5. Viewport Responsive Scaling (16:9 ratio) ---
+  // --- 6. Viewport Responsive Scaling (16:9 ratio) ---
   // #stage はダッシュボードの外（body 直下）にあるため、プレビュー時は
   // 中央セル (.dashboard-preview) の矩形を測って、その上に重ねて表示する。
   const dashboardPreview = document.querySelector(".dashboard-preview");
@@ -360,7 +464,7 @@
   window.addEventListener("load", layoutStage);
   layoutStage();
 
-  // --- 6. Interactive Studio Controls (Only initialized in preview mode) ---
+  // --- 7. Interactive Studio Controls (Only initialized in preview mode) ---
   if (isPreviewMode) {
     initPreviewDashboard();
   }
@@ -575,7 +679,7 @@
     }
   }
 
-  // --- 7. Helper Formatting Functions ---
+  // --- 8. Helper Formatting Functions ---
   function formatTime(seconds) {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
