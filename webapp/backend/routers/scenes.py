@@ -18,6 +18,8 @@ from services.llm_service import (
     ai_adjust_scene_design as ai_adjust_scene_design_llm
 )
 from services.composition import render_scene_preview_html, _validate_scene_html_fragment
+from services.audio_utils import apply_speed
+from services.design_tokens import normalize_narration_speed
 from services.tts_service import derive_seed, synthesize_scene_audio
 from services.jobs import preview_job_store
 
@@ -56,18 +58,22 @@ async def _run_preview_synthesis(job_id: str, scene_id: str) -> None:
             stmt_sc = select(Scenario).where(Scenario.id == scene.scenario_id)
             scenario = (await db.execute(stmt_sc)).scalars().first()
 
+            # 動画のスタイル。既定話者と読み上げ速度をここから取る。
+            # 以前は話者 A / B の解決でそれぞれ別に引いていたが、
+            # 同じ行を 2 回書くと片方だけ直す事故が起きるので 1 回にまとめた。
+            video_style = None
+            if scenario:
+                stmt_style = select(VideoStyle).where(VideoStyle.video_id == scenario.video_id)
+                video_style = (await db.execute(stmt_style)).scalars().first()
+
             # 話者 A (およびデフォルト)
             speaker_a = None
             if scene.speaker_id:
                 stmt_sp = select(Speaker).where(Speaker.id == scene.speaker_id)
                 speaker_a = (await db.execute(stmt_sp)).scalars().first()
-            else:
-                if scenario:
-                    stmt_style = select(VideoStyle).where(VideoStyle.video_id == scenario.video_id)
-                    video_style = (await db.execute(stmt_style)).scalars().first()
-                    if video_style and video_style.default_speaker_id:
-                        stmt_sp = select(Speaker).where(Speaker.id == video_style.default_speaker_id)
-                        speaker_a = (await db.execute(stmt_sp)).scalars().first()
+            elif video_style and video_style.default_speaker_id:
+                stmt_sp = select(Speaker).where(Speaker.id == video_style.default_speaker_id)
+                speaker_a = (await db.execute(stmt_sp)).scalars().first()
 
             # 話者 B (およびデフォルト、chat_dialog 用)
             speaker_b = None
@@ -84,27 +90,32 @@ async def _run_preview_synthesis(job_id: str, scene_id: str) -> None:
 
 
                 speaker_b_id = scene.speaker_b_id
-                if not speaker_b_id and scenario:
-                    stmt_style = select(VideoStyle).where(VideoStyle.video_id == scenario.video_id)
-                    video_style = (await db.execute(stmt_style)).scalars().first()
-                    if video_style:
-                        speaker_b_id = video_style.default_speaker_b_id
+                if not speaker_b_id and video_style:
+                    speaker_b_id = video_style.default_speaker_b_id
                 if speaker_b_id:
                     stmt_sp_b = select(Speaker).where(Speaker.id == speaker_b_id)
                     speaker_b = (await db.execute(stmt_sp_b)).scalars().first()
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dir_path = Path(tmpdir)
+                raw_wav_path = tmp_dir_path / f"preview_{scene.id}.raw.wav"
                 output_wav_path = tmp_dir_path / f"preview_{scene.id}.wav"
-                
-                audio_content = await synthesize_scene_audio(
+
+                await synthesize_scene_audio(
                     text=scene.narration_text,
                     dialog_lines=dialog_lines,
                     speaker_a=speaker_a,
                     speaker_b=speaker_b,
-                    output_wav_path=output_wav_path,
+                    output_wav_path=raw_wav_path,
                     seed=derive_seed(scene.id),
                 )
+                # 本番と同じ読み上げ速度で聴けるようにする。
+                # ここだけ等倍だと、プレビューで速さを確かめられない。
+                speed = normalize_narration_speed(
+                    getattr(video_style, "narration_speed", None) if video_style else None
+                )
+                apply_speed(raw_wav_path, output_wav_path, speed)
+                audio_content = output_wav_path.read_bytes()
                 preview_job_store.update(job_id, status="done", audio=audio_content)
         except Exception as e:
             preview_job_store.update(job_id, status="error", error=f"音声プレビュー生成エラー: {str(e)}")

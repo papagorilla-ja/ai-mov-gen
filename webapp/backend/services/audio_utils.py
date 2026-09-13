@@ -1,16 +1,32 @@
-"""参照音声（reference.wav）を作るための音声後処理。
+"""音声の後処理。参照音声（reference.wav）の作成と、読み上げ速度の適用。
 
 ブラウザのマイク収録は「前後に無音が入る」「録音レベルが人によってばらつく」
 という癖があり、そのまま連結すると Qwen3-TTS の x-vector 抽出に入る有効な音声が
 短くなったり、声質の再現が不安定になる。ここで無音トリムと音量正規化を行い、
 複数テイクから均等に集めて既定 20 秒程度の参照音声に整える。
 
-依存は numpy / soundfile のみ（backend の既存依存で完結させる）。
+依存は numpy / soundfile と ffmpeg（api イメージに同梱）。
 """
 from __future__ import annotations
 
+import logging
+import shutil
+import subprocess
+from pathlib import Path
+
 import numpy as np
 import soundfile as sf
+
+logger = logging.getLogger(__name__)
+
+# 読み上げ速度の適用に使う ffmpeg フィルタ。
+# atempo は音声向けに作られており、速度を変えても音の高さが変わらない。
+# 1 シーン（21 秒の WAV）あたり実測 55 ミリ秒で、尺も指定どおりになる。
+FFMPEG_BIN = "ffmpeg"
+# 倍率がこの範囲を外れると atempo が受け付けない（1 段では 0.5〜2.0）。
+SPEED_MIN, SPEED_MAX = 0.5, 2.0
+# これ以下の差は等倍とみなす（無駄な再エンコードを避ける）
+SPEED_EPSILON = 1e-3
 
 TARGET_SR = 16000          # Qwen3-TTS 参照音声のサンプリングレート
 DEFAULT_MAX_SEC = 20.0     # 参照音声の長さ上限
@@ -124,3 +140,46 @@ def build_reference_audio(
     combined = np.clip(combined, -1.0, 1.0).astype(np.float32)
     sf.write(output_path, combined, TARGET_SR, subtype="PCM_16")
     return combined.size / TARGET_SR, len(prepared)
+
+
+# ==========================================================================
+# 読み上げ速度
+# ==========================================================================
+
+def apply_speed(src: Path, dst: Path, speed: float) -> bool:
+    """src の音声に読み上げ速度を掛けて dst へ書き出す。掛けたら True。
+
+    速度を TTS のキャッシュより後段で適用しているのが要点。
+    キャッシュのハッシュに速度を含めると、1 段階変えるたびに全シーンの
+    音声合成をやり直すことになり（20 シーンで数分〜十数分）、
+    「段階で調整する」という使い方が成り立たない。
+    生の音声を等倍のままキャッシュし、ここで掛け直せば数十ミリ秒で済む。
+
+    変換に失敗しても動画の生成は止めない。等倍のまま先へ進めた方が、
+    音声が欠けた動画を出すより被害が小さいため。
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+
+    if abs(speed - 1.0) < SPEED_EPSILON or not (SPEED_MIN <= speed <= SPEED_MAX):
+        if abs(speed - 1.0) >= SPEED_EPSILON:
+            logger.warning("読み上げ速度 %s は扱える範囲外のため等倍で処理します", speed)
+        if src.resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+        return False
+
+    try:
+        subprocess.run(
+            [FFMPEG_BIN, "-v", "error", "-y", "-i", str(src),
+             "-filter:a", f"atempo={speed:g}", str(dst)],
+            check=True, capture_output=True, timeout=120,
+        )
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+        detail = getattr(e, "stderr", b"")
+        logger.warning(
+            "読み上げ速度の適用に失敗したため等倍のまま使います (speed=%s): %s",
+            speed, detail.decode("utf-8", "replace").strip() if detail else e,
+        )
+        if src.resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+        return False

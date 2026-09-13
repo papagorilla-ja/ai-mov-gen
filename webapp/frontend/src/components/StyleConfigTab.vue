@@ -235,6 +235,33 @@
           </v-card-text>
         </v-card>
 
+        <!-- ── 読み上げ速度 ── -->
+        <v-card class="mb-4 glass-card border-thin" variant="outlined">
+          <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">読み上げ速度</v-card-title>
+          <v-card-text class="pa-3">
+            <v-row dense>
+              <v-col v-for="opt in options?.narration_speeds || []" :key="opt.value" cols="12" sm="4">
+                <v-card
+                  :class="['choice-card pa-3', { 'is-selected': speedValue === opt.value }]"
+                  variant="outlined"
+                  @click="styleForm.narration_speed = opt.value"
+                >
+                  <div class="d-flex align-center justify-space-between">
+                    <span class="text-caption font-weight-bold">{{ opt.label }}</span>
+                    <span class="text-caption text-medium-emphasis">{{ opt.value.toFixed(1) }}x</span>
+                  </div>
+                  <div class="text-caption text-medium-emphasis choice-desc">{{ opt.description }}</div>
+                </v-card>
+              </v-col>
+            </v-row>
+            <div class="text-caption text-medium-emphasis mt-2">
+              合成した音声に後から掛けるので、音の高さは変わりません。
+              変更しても音声の作り直しは起きず、次回の書き出しから反映されます。
+              シーンの長さも自動で追従します。
+            </div>
+          </v-card-text>
+        </v-card>
+
         <!-- ── スタイルプロンプト ── -->
         <v-card class="mb-4 glass-card border-thin" variant="outlined">
           <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">AI にデザインを任せる</v-card-title>
@@ -349,6 +376,8 @@ const layoutsStore = useLayoutsStore()
 // 未設定（NULL）のときはレジストリ既定（standard）が使われる。
 // 画面側で既定値を書き込んでしまうと、既定を変えたときに追従しなくなる。
 const breadthValue = computed(() => styleForm.layout_breadth || layoutsStore.defaultBreadth)
+// 小数の比較で選択中が判定できなくならないよう、いったん丸めて突き合わせる
+const speedValue = computed(() => Math.round((styleForm.narration_speed ?? 1.0) * 100) / 100)
 const ui = useUiStore()
 
 const previewUrl = ref('')
@@ -367,7 +396,7 @@ const options = computed(() => styleStore.options)
 
 // 画面サイズ以外の既定値はサーバーから取得したものを使う。
 // 画面サイズだけはサーバー側でも列の既定値を持つためここで定義する。
-const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null, layout_breadth: null }
+const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null, layout_breadth: null, narration_speed: 1.0 }
 
 // 変更するとコンポジションの構造（HTML）が変わるため、サーバーでの再生成が要る項目。
 // これ以外は iframe に CSS を流し込むだけで反映できる。
@@ -393,6 +422,7 @@ const styleForm = reactive({
   type_scale: 'normal',
   transition: 'none',
   layout_breadth: null,
+  narration_speed: 1.0,
   custom_css: '',
   bgm_volume: 0.3,
   canvas_width: 1920,

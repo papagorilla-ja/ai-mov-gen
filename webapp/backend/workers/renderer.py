@@ -12,6 +12,7 @@ from sqlalchemy.future import select
 from core.config import settings
 from core.database import AsyncSessionLocal
 from core.project_path import get_project_dir
+from services.design_tokens import normalize_narration_speed
 from models.generation_history import GenerationHistory
 from models.project import Project
 from models.scenario import Scenario
@@ -21,6 +22,7 @@ from models.scene_tts_cache import SceneTtsCache
 from models.speaker import Speaker
 from models.video import Video
 from models.video_style import VideoStyle
+from services.audio_utils import apply_speed
 from services.composition import (
     TRANSITION_BUFFER,
     find_missing_css_refs,
@@ -226,10 +228,13 @@ async def purge_scene_audio(db, scenes: list[Scene], audio_dir: Path, log) -> in
         await db.delete(row)
 
     for scene in scenes:
-        wav_path = audio_dir / f"scene{scene.index}.wav"
-        if wav_path.exists():
-            wav_path.unlink()
-            removed_files += 1
+        # 生の音声（.raw.wav）と、読み上げ速度を掛けた最終ファイルの両方を消す。
+        # raw を残すと「作り直した」のに前回の音声が使われ続ける。
+        for wav_path in (audio_dir / f"scene{scene.index}.raw.wav",
+                         audio_dir / f"scene{scene.index}.wav"):
+            if wav_path.exists():
+                wav_path.unlink()
+                removed_files += 1
         scene.narration_audio_path = None
         scene.narration_audio_duration = None
 
@@ -280,6 +285,10 @@ async def run_generation(video_id: str, generation_id: str, broadcast_fn, regene
         video_dir.mkdir(parents=True, exist_ok=True)
         audio_dir = video_dir / "assets/audio"
         audio_dir.mkdir(parents=True, exist_ok=True)
+
+        # 読み上げ速度は動画ごとの設定。DB の値をここで一度だけ丸めておく
+        # （範囲外の値をそのまま ffmpeg に渡さないため）。
+        narration_speed = normalize_narration_speed(getattr(style, "narration_speed", None))
 
         logs = []
         def log(msg):
@@ -373,6 +382,10 @@ async def run_generation(video_id: str, generation_id: str, broadcast_fn, regene
                 )
 
                 cached = cache_map.get(scene.id)
+                # 生の音声（常に等倍）と、読み上げ速度を掛けた最終ファイルを分ける。
+                # キャッシュ対象は raw の方。速度をハッシュに含めると、速度を
+                # 1 段階変えるたびに全シーンを合成し直すことになるため。
+                raw_path = audio_dir / f"scene{scene.index}.raw.wav"
                 wav_path = audio_dir / f"scene{scene.index}.wav"
 
                 if (
@@ -388,9 +401,12 @@ async def run_generation(video_id: str, generation_id: str, broadcast_fn, regene
                         f"シーン {idx}/{total_scenes} はキャッシュを使用（スキップ）",
                         None
                     )
+                    # 速度対応より前のキャッシュは scene{N}.wav を指している。
+                    # 中身は等倍なので、生音声として引き継げば再合成は要らない。
                     cached_wav = Path(cached.audio_path)
-                    if cached_wav != wav_path and cached_wav.exists():
-                        shutil.copy2(str(cached_wav), str(wav_path))
+                    if cached_wav.resolve() != raw_path.resolve():
+                        shutil.copy2(str(cached_wav), str(raw_path))
+                        cached.audio_path = str(raw_path)
                     skipped_count += 1
                 else:
                     # ─── キャッシュミス: TTS で再合成 ────────────────────
@@ -415,7 +431,7 @@ async def run_generation(video_id: str, generation_id: str, broadcast_fn, regene
                         dialog_lines=dialog_lines,
                         speaker_a=speaker_a,
                         speaker_b=speaker_b,
-                        output_wav_path=wav_path,
+                        output_wav_path=raw_path,
                         seed=seed,
                         stats=tts_stats,
                     )
@@ -430,14 +446,22 @@ async def run_generation(video_id: str, generation_id: str, broadcast_fn, regene
                     # キャッシュを更新（upsert）
                     if cached is not None:
                         cached.narration_hash = current_hash
-                        cached.audio_path = str(wav_path)
+                        cached.audio_path = str(raw_path)
                     else:
                         new_cache = SceneTtsCache(
                             scene_id=scene.id,
                             narration_hash=current_hash,
-                            audio_path=str(wav_path),
+                            audio_path=str(raw_path),
                         )
                         db.add(new_cache)
+
+                # 読み上げ速度を掛けて、動画が使う WAV を作る。
+                # キャッシュを使ったシーンでもここは必ず通す（速度だけ変えた
+                # ときに、前回の速度の音声が残らないようにするため）。
+                if raw_path.exists():
+                    changed = apply_speed(raw_path, wav_path, narration_speed)
+                    if changed and idx == 1:
+                        log(f"読み上げ速度 {narration_speed:g} 倍を適用しています")
 
                 # WAV が確定したのでメタデータを更新
                 if wav_path.exists():

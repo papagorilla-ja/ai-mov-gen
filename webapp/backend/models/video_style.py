@@ -36,6 +36,9 @@ class VideoStyle(Base):
     default_speaker_b_id: Mapped[str | None] = mapped_column(String, ForeignKey("speakers.id"))
     bgm_path: Mapped[str | None] = mapped_column(Text)
     bgm_volume: Mapped[float] = mapped_column(Float, default=0.3, nullable=False)
+    # 読み上げ速度の倍率。合成済みの音声に後段で掛ける（値の一覧は design_tokens.py）。
+    # TTS のキャッシュより後ろで適用するため、ここを変えても音声の再合成は起きない。
+    narration_speed: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     canvas_width: Mapped[int] = mapped_column(Integer, default=1920, nullable=False)
     canvas_height: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
 

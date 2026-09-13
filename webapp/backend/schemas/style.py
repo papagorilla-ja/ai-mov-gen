@@ -57,6 +57,7 @@ class VideoStyleRead(BaseModel):
     default_speaker_b_id: str | None = None
     bgm_path: str | None = None
     bgm_volume: float = 0.3
+    narration_speed: float = 1.0
     canvas_width: int = 1920
     canvas_height: int = 1080
 
@@ -90,6 +91,7 @@ class VideoStyleUpdate(BaseModel):
     default_speaker_id: str | None = None
     default_speaker_b_id: str | None = None
     bgm_volume: float | None = None
+    narration_speed: float | None = None
     canvas_width: int | None = None
     canvas_height: int | None = None
 
