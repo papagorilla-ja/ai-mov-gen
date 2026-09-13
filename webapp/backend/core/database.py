@@ -78,6 +78,7 @@ async def init_db():
             # FIX-22: AI に使わせるレイアウトの幅。NULL は 'standard' 扱い
             # （既存動画の振る舞いを変えないため、既定値は入れない）
             "ALTER TABLE video_styles ADD COLUMN layout_breadth TEXT",
+            "ALTER TABLE video_styles ADD COLUMN narration_speed REAL DEFAULT 1.0",
         ]:
             try:
                 await conn.execute(text(stmt))

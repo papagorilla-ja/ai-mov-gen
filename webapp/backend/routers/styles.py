@@ -18,6 +18,7 @@ from services.design_tokens import (
     normalize_decor,
     normalize_font,
     normalize_motif,
+    normalize_narration_speed,
     normalize_transition,
     normalize_type_scale,
     stage_classes,
@@ -54,7 +55,13 @@ _NORMALIZED_FIELDS = {
     "type_scale": normalize_type_scale,
     "transition": normalize_transition,
     "layout_breadth": normalize_breadth,
+    "narration_speed": normalize_narration_speed,
 }
+
+# 上のうち、DB が NOT NULL のもの。null が送られてきても既定値へ丸める。
+# 他のフィールドは null を「クリア（既定値にフォールバック）」として NULL 保存
+# できるが、これらは NULL を入れると保存時に落ちる。
+_NOT_NULL_FIELDS = ("narration_speed",)
 
 
 def _apply_updates(style: VideoStyle, payload: VideoStyleUpdate) -> None:
@@ -70,8 +77,11 @@ def _apply_updates(style: VideoStyle, payload: VideoStyleUpdate) -> None:
     for field, normalize in _NORMALIZED_FIELDS.items():
         if field in sent:
             value = getattr(payload, field)
-            # 明示的な null はクリア（既定値にフォールバックさせる）とみなす
-            setattr(style, field, normalize(value) if value is not None else None)
+            if value is None and field not in _NOT_NULL_FIELDS:
+                # 明示的な null はクリア（既定値にフォールバックさせる）とみなす
+                setattr(style, field, None)
+            else:
+                setattr(style, field, normalize(value))
 
 
 async def _get_or_create_style(video_id: str, db: AsyncSession) -> VideoStyle:

@@ -103,6 +103,17 @@ FONT_CHOICES = [
     },
 ]
 
+# 読み上げ速度。生成した音声に後から掛ける倍率で、値がそのまま ffmpeg の atempo になる。
+# 換算の根拠: 生成済み 67 シーンの実測で、等倍は中央値 5.96 文字/秒（約 358 字/分）。
+BASE_CHARS_PER_SEC = 5.96
+NARRATION_SPEEDS = [
+    {"value": 0.9, "label": "ゆっくり", "description": "約 5.4 文字/秒。専門用語が多い内容や、初学者向けに"},
+    {"value": 1.0, "label": "標準", "description": "約 6.0 文字/秒。ニュース番組と同じくらいの速さ"},
+    {"value": 1.1, "label": "やや速め", "description": "約 6.6 文字/秒。聞き取りやすさを保ちつつ短くなる"},
+    {"value": 1.2, "label": "速め", "description": "約 7.2 文字/秒。既知の内容の復習や、尺を詰めたいときに"},
+    {"value": 1.3, "label": "かなり速め", "description": "約 7.7 文字/秒。早口に感じる人もいる速さ"},
+]
+
 # 既定値。「既存動画の見た目を変えない」ことを最優先に選んでいる。
 DEFAULTS = {
     "color_primary": "#6366f1",
@@ -116,6 +127,7 @@ DEFAULTS = {
     "decor_style": "glass",
     "type_scale": "normal",
     "transition": "none",
+    "narration_speed": 1.0,
 }
 
 # 廃止したフォント名から現行の選択肢への読み替え。
@@ -134,6 +146,7 @@ _DECOR_VALUES = {o["value"] for o in DECOR_STYLES}
 _TYPE_VALUES = {o["value"] for o in TYPE_SCALES}
 _TRANSITION_VALUES = {o["value"] for o in TRANSITIONS}
 _FONT_STACKS = {o["value"]: o["stack"] for o in FONT_CHOICES}
+_SPEED_VALUES = tuple(o["value"] for o in NARRATION_SPEEDS)
 
 # API / フロントエンドへまとめて渡すためのカタログ
 STYLE_OPTIONS = {
@@ -143,6 +156,7 @@ STYLE_OPTIONS = {
     "transitions": TRANSITIONS,
     # stack も渡す。画面側でフォント名をその書体自身で描いて見せるのに使う。
     "fonts": FONT_CHOICES,
+    "narration_speeds": NARRATION_SPEEDS,
     "defaults": DEFAULTS,
 }
 
@@ -156,6 +170,19 @@ def normalize_choice(value: str | None, allowed: set[str], fallback: str) -> str
     if value and value in allowed:
         return value
     return fallback
+
+
+def normalize_narration_speed(value) -> float:
+    """読み上げ速度を許可された段階に丸める。
+
+    そのまま ffmpeg の atempo に渡す値なので、範囲外や数値でないものを
+    通すと音声処理そのものが落ちる。段階の中で一番近いものへ寄せる。
+    """
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return DEFAULTS["narration_speed"]
+    return min(_SPEED_VALUES, key=lambda allowed: abs(allowed - v))
 
 
 def normalize_motif(value: str | None) -> str:
