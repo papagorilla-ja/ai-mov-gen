@@ -375,6 +375,7 @@
                 <SceneContentForm
                   v-model="slideContent"
                   :type-def="currentTypeDef"
+                  :field-notes="currentLayoutDef?.field_notes || {}"
                 />
 
                 <v-textarea

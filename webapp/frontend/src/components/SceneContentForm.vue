@@ -6,7 +6,7 @@
         v-if="field.kind === 'text'"
         v-model="content[field.name]"
         :label="field.label"
-        :hint="field.hint"
+        :hint="hintFor(field)"
         :counter="field.max_chars || undefined"
         persistent-hint
         class="mb-4"
@@ -17,7 +17,7 @@
         v-else-if="field.kind === 'textarea'"
         v-model="content[field.name]"
         :label="field.label"
-        :hint="field.hint"
+        :hint="hintFor(field)"
         :counter="field.max_chars || undefined"
         rows="3"
         persistent-hint
@@ -30,7 +30,7 @@
         v-model="content[field.name]"
         :items="field.options"
         :label="field.label"
-        :hint="field.hint"
+        :hint="hintFor(field)"
         persistent-hint
         class="mb-4"
       />
@@ -64,7 +64,7 @@
             @click="addItem(field)"
           >追加</v-btn>
         </div>
-        <div v-if="field.hint" class="text-caption text-medium-emphasis mb-2">{{ field.hint }}</div>
+        <div v-if="hintFor(field)" class="text-caption text-medium-emphasis mb-2">{{ hintFor(field) }}</div>
 
         <v-card
           v-for="(item, idx) in listValue(field.name)" :key="idx"
@@ -111,14 +111,14 @@
       <!-- ── 階層（専用エディタ） ─────────────────── -->
       <div v-else-if="field.kind === 'tree'" class="mb-4">
         <div class="text-subtitle-2 font-weight-bold mb-1">{{ field.label }}</div>
-        <div v-if="field.hint" class="text-caption text-medium-emphasis mb-2">{{ field.hint }}</div>
+        <div v-if="hintFor(field)" class="text-caption text-medium-emphasis mb-2">{{ hintFor(field) }}</div>
         <LayoutTreeField v-model="content[field.name]" />
       </div>
 
       <!-- ── 表（専用エディタ） ───────────────────── -->
       <div v-else-if="field.kind === 'table'" class="mb-4">
         <div class="text-subtitle-2 font-weight-bold mb-1">{{ field.label }}</div>
-        <div v-if="field.hint" class="text-caption text-medium-emphasis mb-2">{{ field.hint }}</div>
+        <div v-if="hintFor(field)" class="text-caption text-medium-emphasis mb-2">{{ hintFor(field) }}</div>
         <v-text-field
           :model-value="(content.headers || []).join(', ')"
           label="見出し行（カンマ区切り）" density="compact" class="mb-2"
@@ -159,7 +159,7 @@
            枚数はレイアウトの capacity が決めるので「枠を追加」も置かない。 -->
       <div v-else-if="field.kind === 'images'" class="mb-4">
         <div class="text-subtitle-2 font-weight-bold mb-1">{{ field.label }}</div>
-        <div v-if="field.hint" class="text-caption text-medium-emphasis mb-2">{{ field.hint }}</div>
+        <div v-if="hintFor(field)" class="text-caption text-medium-emphasis mb-2">{{ hintFor(field) }}</div>
         <v-alert type="info" variant="tonal" density="compact" class="text-caption">
           画像の取り込みとキャプションは、下の「素材スロット」で行います。
         </v-alert>
@@ -181,9 +181,25 @@ import LayoutTreeField from './LayoutTreeField.vue'
 const props = defineProps({
   modelValue: { type: Object, required: true },   // 正規化済みの slide_content_json
   typeDef: { type: Object, default: null },       // /api/v1/layouts の types の 1 件
+  // そのレイアウトでしか起きない挙動の注記 { フィールド名: 説明 }。
+  // レイアウトの spec.py が field_notes として宣言する。
+  fieldNotes: { type: Object, default: () => ({}) },
 })
 
 const content = computed(() => props.modelValue)
+
+/**
+ * 項目の下に出す説明文。
+ *
+ * 型の hint（同じ型のレイアウト全部に共通）に、レイアウト固有の注記を足す。
+ * 「数字を入れるとカウントアップする」のような、そのレイアウトでしか
+ * 起きない挙動は言われないと気づけないため、入力欄のすぐ下に置く。
+ */
+function hintFor(field) {
+  const note = props.fieldNotes?.[field.name]
+  if (!note) return field.hint || ''
+  return field.hint ? `${field.hint}　※ ${note}` : `※ ${note}`
+}
 
 const chartTypes = [
   { title: '棒グラフ（項目の比較）', value: 'bar' },
