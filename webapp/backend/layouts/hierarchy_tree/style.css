@@ -1,8 +1,19 @@
-/* 枝は擬似要素で引く純 CSS のツリー。
-   - li::before … 兄弟をつなぐ横線
-   - li::after  … 横線からノードへ下ろす縦線
-   - ul::before … 親から横線へ下ろす縦線
-   端の子は横線を半分だけ引いて、はみ出した枝が出ないようにする。 */
+/* 枝を絶対配置で引くツリー。座標計算をしないので、文字の長さが変わってもずれない。
+   - .tree-branch-h    … 兄弟をつなぐ横線
+   - .tree-branch-v    … 横線からノードへ下ろす縦線
+   - .tree-branch-drop … 親から子の横線へ下ろす縦線
+   端の子は横線を半分だけ引いて、はみ出した枝が出ないようにする。
+
+   枝は擬似要素ではなく span。GSAP が擬似要素を掴めず、枝だけ
+   最初から描かれてしまうため（template.html 側の注記も参照）。
+
+   2 つの落とし穴に注意すること。
+   1. 中央寄せに transform を使わない。枝は .clip なので GSAP が transform を
+      握る。translateX(-50%) を書くと登場と同時に中央寄せが飛ぶ。
+      幅 2px の半分を margin-left: -1px で相殺する。
+   2. li の数えかたは :first-of-type / :only-of-type を使う。
+      ul の直下に .tree-branch-drop（span）が入るため、:only-child は
+      子が 1 つでも成立せず、横線を消す指定が効かなくなる。 */
 .tree-root, .tree-root ul {
   list-style: none; margin: 0; padding: 0;
   display: flex; justify-content: center; align-items: flex-start;
@@ -12,28 +23,23 @@
   padding: calc(46px * var(--gap-scale) * var(--gap-dens)) calc(8px * var(--gap-scale)) 0;
   text-align: center;
 }
-.tree-root li::before,
-.tree-root li::after { content: ''; position: absolute; background: var(--border-strong); }
-.tree-root li::before { top: 0; left: 0; right: 0; height: 2px; }
-.tree-root li::after {
-  top: 0; left: 50%; width: 2px;
-  height: calc(46px * var(--gap-scale) * var(--gap-dens)); transform: translateX(-50%);
+.tree-branch-h,
+.tree-branch-v,
+.tree-branch-drop { position: absolute; background: var(--border-strong); }
+.tree-branch-h { top: 0; left: 0; right: 0; height: 2px; }
+.tree-branch-v,
+.tree-branch-drop {
+  top: 0; left: 50%; width: 2px; margin-left: -1px;
+  height: calc(46px * var(--gap-scale) * var(--gap-dens));
 }
-/* 根には上から来る枝が無い */
+/* 根には上から来る枝が無い（template 側でそもそも出力していない） */
 .tree-root > li { padding-top: 0; }
-.tree-root > li::before,
-.tree-root > li::after { display: none; }
 /* 端の子は横線を内側半分だけにする */
-.tree-root li:first-child::before { left: 50%; }
-.tree-root li:last-child::before  { right: 50%; }
-.tree-root li:only-child::before  { display: none; }
-/* 親から下へ下ろす枝 */
+.tree-root li:first-of-type > .tree-branch-h { left: 50%; }
+.tree-root li:last-of-type  > .tree-branch-h { right: 50%; }
+.tree-root li:only-of-type  > .tree-branch-h { display: none; }
+/* 親から下へ下ろす枝の基準になる箱 */
 .tree-root li > ul { position: relative; padding-top: calc(46px * var(--gap-scale) * var(--gap-dens)); }
-.tree-root li > ul::before {
-  content: ''; position: absolute; top: 0; left: 50%;
-  width: 2px; height: calc(46px * var(--gap-scale) * var(--gap-dens));
-  transform: translateX(-50%); background: var(--border-strong);
-}
 
 .tree-node {
   display: inline-flex; flex-direction: column; gap: 2px;

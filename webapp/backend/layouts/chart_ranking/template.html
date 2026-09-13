@@ -10,8 +10,16 @@
           <span class="rank-label">{{ r['label'] }}</span>
           <span class="rank-value">{{ r['value'] }}<small>{{ unit }}</small></span>
         </div>
-        {# 棒の長さは最大値に対する割合。最小でも 4% 残して、0 件の項目が消えないようにする。 #}
-        <div class="rank-track"><div class="rank-bar" style="width: {{ r['pct'] }}%"></div></div>
+        {# 棒の長さは最大値に対する割合。最小でも 4% 残して、0 件の項目が消えないようにする。
+
+           棒は行より少し遅れて左から伸ばす。順位そのものが主題なので、
+           長さの差が「伸びて決まる」ように見えないと、ただの表と変わらない。
+           scaleX ではなく clip-path なのは、角丸とグラデーションを潰さないため。 #}
+        <div class="rank-track">
+          <div class="clip rank-bar" style="width: {{ r['pct'] }}%"
+               data-seq="spread" data-seq-index="{{ loop.index0 }}"
+               data-seq-offset="0.28" data-anim="draw-right"></div>
+        </div>
       </div>
     </div>
     {% endfor %}

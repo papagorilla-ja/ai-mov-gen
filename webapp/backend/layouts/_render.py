@@ -39,6 +39,18 @@ def _fmt(v: float) -> str:
     return f"{v:.2f}"
 
 
+def _slot(el) -> int:
+    """data-seq-index をスロット番号として読む。
+
+    テンプレートの書き損じ（空文字・非数値・負値）で描画全体を落とさない。
+    読めなければ先頭スロット扱いにする。
+    """
+    try:
+        return max(0, int(el.get("data-seq-index") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 # ==========================================================================
 # Jinja2 環境
 # ==========================================================================
@@ -100,23 +112,26 @@ def apply_timing(html: str, scene_start: float, scene_duration: float) -> str:
     for el in frag.select('[data-seq="tail"]'):
         assign(el, scene_start + scene_duration * TAIL_RATIO)
 
-    # spread は「同じ親を共有するグループ」ごとに配分する。
-    # 1 シーンに複数のリストがある場合でも、各リストがそれぞれ尺全体に広がる。
-    groups: dict[int, list] = {}
-    for el in frag.select('[data-seq="spread"]'):
-        groups.setdefault(id(el.parent), []).append(el)
-
-    for members in groups.values():
-        # data-seq-index は「何番目に出るか」ではなく「どのスロットで出るか」。
-        # 同じ番号を付けた要素は同時に出る。
-        # 例: 横型フローの矢印は、その矢印が指す先のステップと同じ番号を持つ。
-        #     番号を単純な並び順にすると、最後の矢印だけが「何も無い方を指したまま
-        #     次のステップを待つ」時間が生まれてしまう。
-        indices = [int(e.get("data-seq-index") or 0) for e in members]
-        slots = max(indices) + 1 if indices else 1
+    # data-seq-index は「何番目に出るか」ではなく「シーンのどのスロットで出るか」。
+    # 同じ番号を付けた要素は同時に出る。
+    # 例: 横型フローの矢印は、その矢印が指す先のステップと同じ番号を持つ。
+    #     番号を単純な並び順にすると、最後の矢印だけが「何も無い方を指したまま
+    #     次のステップを待つ」時間が生まれてしまう。
+    #
+    # スロット数はシーン全体でひとつに決める。以前は「同じ親を共有するグループ」
+    # ごとに数え直していたが、図解レイアウトは位置決めの .diagram-node で
+    # 要素を 1 個ずつ包むため、要素それぞれが単独のグループになってしまい、
+    # slots が要素ごとに変わっていた。結果、12 秒のシーンで円環フローの 4 ノードが
+    # 0.90 / 7.97 / 9.38 / 9.99 秒に出て、前半 7 秒が空白になっていた。
+    # 1 シーン = 1 レイアウトなので、番号はそのテンプレートの作者が意図して
+    # 振ったもの。シーン全体で通し番号として扱うのが正しい。
+    spread = frag.select('[data-seq="spread"]')
+    if spread:
+        indices = [_slot(el) for el in spread]
+        slots = max(indices) + 1
         usable = max(0.0, scene_duration - SPREAD_LEAD - EXIT_BUFFER)
         step = max(MIN_STEP, usable / slots)
-        for el, idx in zip(members, indices):
+        for el, idx in zip(spread, indices):
             assign(el, scene_start + SPREAD_LEAD + idx * step)
 
     # 役割を持たない .clip（テンプレートの書き忘れ）を放置すると、

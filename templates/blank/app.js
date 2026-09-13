@@ -117,7 +117,17 @@
   // いまはレイアウト側が data-anim で「動きの語彙」を宣言し、ここは辞書を引くだけ。
   // レイアウトを追加してもこのファイルは触らない。
   //
-  // 語彙を増やすときは layouts/<id>/spec.py 側の宣言とここの 2 箇所だけ。
+  // 語彙を増やすときは layouts/<id>/template.html 側の宣言とここの 2 箇所だけ。
+  //
+  // 語彙は 3 系統ある。**足す前に既存と重複していないか必ず確かめること。**
+  //   1. transform 系 … rise / slide-* / pop / expand-circle / flip
+  //        伸びる表現は grow-bar（下→上・scaleY）と scale-x（左→右・scaleX）の対。
+  //   2. clip-path 系 … draw-right(左→右) / draw-down(上→下) / draw-up(下→上)
+  //        transform を使わないので、角丸・グラデーション・線幅を歪めずに現れる。
+  //        帯・棒・線はこちらを使う。scaleX で伸ばすとグラデーションごと潰れる。
+  //        逆向きの draw-left は使う場所がまだ無いので置いていない。
+  //   3. 文字そのものを動かす … count-up
+  //        CSS プロパティの補間では表せないため、extra に関数を持たせている。
   const ANIMS = {
     none:            { from: {},                                            to: {} },
     fade:            { from: {},                                            to: { duration: 0.7 } },
@@ -130,16 +140,74 @@
     // 要素が CSS で回転していても、その向きに沿って伸びる。
     "draw-right":    { from: { clipPath: "inset(0 100% 0 0)" },             to: { clipPath: "inset(0 0% 0 0)", duration: 0.6 } },
     "draw-down":     { from: { clipPath: "inset(0 0 100% 0)" },             to: { clipPath: "inset(0 0 0% 0)", duration: 0.6 } },
+    "draw-up":       { from: { clipPath: "inset(100% 0 0 0)" },             to: { clipPath: "inset(0% 0 0 0)", duration: 0.6 } },
     "expand-circle": { from: { scale: 0.6 },                                to: { scale: 1, duration: 0.8, ease: "power3.out" } },
     "grow-bar":      { from: { scaleY: 0 },                                 to: { scaleY: 1, duration: 0.7, transformOrigin: "center bottom" } },
     "blur-in":       { from: { filter: "blur(14px)", scale: 1.04 },         to: { filter: "blur(0px)", scale: 1, duration: 0.9 } },
     flip:            { from: { rotationY: -70 },                            to: { rotationY: 0, duration: 0.7 } },
+    // 数値が主役のときだけ使う。軽く持ち上げつつ、数字を 0 から目標値まで動かす。
+    "count-up":      { from: { y: 18 },                                     to: { y: 0, duration: 0.5 }, extra: countUp },
   };
   const DEFAULT_ANIM = "rise";
   // 退場は透明度だけにしている。位置や拡大を触ると、CSS 側で
   // transform を持つ要素（図解のノードや回転した矢印）と取り合いになり、
   // 最後の 0.4 秒だけ図が崩れる、という分かりにくい壊れ方をするため。
   const EXIT_DURATION = 0.4;
+
+  // ---- count-up の実装 ----
+  //
+  // 「42.5%」「1,200 件」「約 3.2 倍」のように、数値の前後に文字が付く前提で書く。
+  // 最初に見つかった数値だけを 0 から目標値へ動かし、それ以外の文字は触らない。
+  //
+  // シーク方式の書き出しでも破綻しない。hyperframes はタイムラインを任意の時刻へ
+  // シークしてから 1 枚捕獲するが、GSAP はシーク先の時刻で tween を描画し直すため、
+  // onUpdate で書き戻す方式なら「時刻 → 表示」が一意に決まる。
+  // （Chart.js を animation: false にしたのは、あちらが rAF 駆動で
+  //   シークに追従しないため。GSAP の tween であればこの問題は起きない。）
+  const NUMBER_RE = /-?\d[\d,]*(?:\.\d+)?/;
+
+  // 実測オートフィットが途中経過（「0%」のような短い文字列）を測ってしまうと、
+  // 完成形が箱からはみ出す。測る直前に完成形へ戻せるよう控えておく。
+  const countUpTexts = [];
+
+  function restoreCountUpText() {
+    countUpTexts.forEach((item) => { item.el.textContent = item.text; });
+  }
+
+  function countUp(el, start, duration) {
+    const raw = el.textContent.trim();
+    const match = raw.match(NUMBER_RE);
+    if (!match) return;                       // 数字が無ければ持ち上げ（y）だけが効く
+    const target = parseFloat(match[0].replace(/,/g, ""));
+    if (!isFinite(target)) return;
+
+    const prefix = raw.slice(0, match.index);
+    const suffix = raw.slice(match.index + match[0].length);
+    // 小数桁と桁区切りは元の表記に合わせる。「3.2 倍」が途中で「3 倍」に見えたり、
+    // 「1,200」が「1200」に変わったりすると、別の値に読めてしまうため。
+    const decimals = (match[0].split(".")[1] || "").length;
+    const grouped = match[0].includes(",");
+    const format = (value) => {
+      const fixed = value.toFixed(decimals);
+      return grouped
+        ? Number(fixed).toLocaleString("ja-JP", {
+            minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+          })
+        : fixed;
+    };
+
+    countUpTexts.push({ el: el, text: raw });
+
+    // 尺の長いシーンでも数え続けない。持ち時間の 35% を目安に 0.6〜1.6 秒へ収める。
+    const spin = Math.min(1.6, Math.max(0.6, duration * 0.35));
+    const proxy = { value: 0 };
+    tl.to(proxy, {
+      value: target,
+      duration: spin,
+      ease: "power2.out",
+      onUpdate: () => { el.textContent = prefix + format(proxy.value) + suffix; },
+    }, start);
+  }
 
   const clips = document.querySelectorAll(".clip");
 
@@ -174,12 +242,21 @@
       });
     } else {
       // 2. スライド内の要素。data-anim の語彙で登場のしかたを決める。
-      const spec = ANIMS[el.getAttribute("data-anim")] || ANIMS[DEFAULT_ANIM];
+      const animName = el.getAttribute("data-anim");
+      // 辞書に無い語彙は既定へ落とすが、黙って落とすと気づけない。
+      // 実際 count-up は辞書に無いまま rise で描かれ続けており、
+      // 「数字が主役のレイアウトなのに数字が動かない」原因になっていた。
+      if (animName && !(animName in ANIMS)) {
+        console.warn(`[anim] 未定義の data-anim="${animName}" を既定 (${DEFAULT_ANIM}) で描画します`);
+      }
+      const spec = ANIMS[animName] || ANIMS[DEFAULT_ANIM];
       const fromVars = Object.assign({ opacity: 0 }, spec.from);
       const toVars = Object.assign({ opacity: 1, ease: "power2.out", duration: 0.7 }, spec.to);
 
       gsap.set(el, { opacity: 0 });
       tl.fromTo(el, fromVars, toVars, start);
+      // CSS プロパティの補間では表せない動き（数字のカウントなど）を足す。
+      if (spec.extra) spec.extra(el, start, duration);
 
       const exitAt = Math.max(start, start + duration - EXIT_DURATION);
       tl.to(el, { opacity: 0, duration: EXIT_DURATION, ease: "power2.in" }, exitAt);
@@ -209,6 +286,9 @@
   }
 
   function autoFitAll() {
+    // count-up は文字列を書き換えるため、測る前に必ず完成形へ戻す。
+    // 「0%」を測って縮小率を決めると、数え終わった「42%」がはみ出す。
+    restoreCountUpText();
     // スライドは display:none で待機しているため、そのままでは寸法が 0 になる。
     // 1 枚ずつ「見えない状態で表示」して測り、元に戻す。
     document.querySelectorAll(".slide").forEach((slide) => {
