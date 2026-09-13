@@ -2,7 +2,10 @@
 <div class="case-card">
   <div class="case-visual">
     {% if img and img['src'] %}
-    <img class="clip case-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.2" data-anim="blur-in">
+    {# .case-visual が切り取るので寄っても破綻しない。
+       札は左下に置くため、写真は左上へ向かって流す。 #}
+    <img class="clip case-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.2"
+         data-anim="soft-in" data-motion="ken-burns" data-motion-dir="tl">
     {% else %}
     <div class="clip case-image case-image--placeholder" data-seq="head" data-seq-offset="-0.2" data-anim="fade"></div>
     {% endif %}

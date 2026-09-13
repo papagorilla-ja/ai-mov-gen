@@ -2,8 +2,12 @@
 <div class="gallery-grid" data-count="{{ count }}">
   {% for img in c['images'] %}
   <figure class="clip gallery-item" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+    {# 動かすのは img で、figure（.clip）ではない。
+       figure は登場で pop（scale）を使うため、同じ要素に寄りを足すと取り合う。
+       object-fit: contain なので寄ると端が欠ける。欠ける量を片側 3% までに
+       抑えた ken-burns-soft を使い、流しも入れない。 #}
     {% if img['src'] %}
-    <img class="gallery-media" src="{{ img['src'] }}" alt="">
+    <img class="gallery-media" src="{{ img['src'] }}" alt="" data-motion="ken-burns-soft">
     {% else %}
     {# 空の <img> は白い箱として描かれてしまう。未設定は枠線で示す #}
     <div class="gallery-media gallery-media--placeholder"></div>

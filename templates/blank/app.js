@@ -252,6 +252,9 @@
     "expand-circle": { from: { scale: 0.6 },                                to: { scale: 1, duration: 0.8, ease: "power3.out" } },
     "grow-bar":      { from: { scaleY: 0 },                                 to: { scaleY: 1, duration: 0.7, transformOrigin: "center bottom" } },
     "blur-in":       { from: { filter: "blur(14px)", scale: 1.04 },         to: { filter: "blur(0px)", scale: 1, duration: 0.9 } },
+    // blur-in から scale を抜いたもの。data-motion で transform を使う要素に使う
+    // （両方が scale を書くと登場アニメーションが上書きされて消える）。
+    "soft-in":       { from: { filter: "blur(14px)" },                      to: { filter: "blur(0px)", duration: 0.9 } },
     flip:            { from: { rotationY: -70 },                            to: { rotationY: 0, duration: 0.7 } },
     // 数値が主役のときだけ使う。軽く持ち上げつつ、数字を 0 から目標値まで動かす。
     "count-up":      { from: { y: 18 },                                     to: { y: 0, duration: 0.5 }, extra: countUp },
@@ -369,6 +372,82 @@
       const exitAt = Math.max(start, start + duration - EXIT_DURATION);
       tl.to(el, { opacity: 0, duration: EXIT_DURATION, ease: "power2.in" }, exitAt);
     }
+  });
+
+  // ---- 尺いっぱい続く動き（data-motion）----
+  //
+  // data-anim は「登場のしかた」で 0.7〜0.9 秒で終わる。実際のシーンは
+  // 48〜101 秒あり（生成済み動画の実測）、登場が終わったあとは完全な静止画になる。
+  // data-motion は、その要素が出ている間ずっと続く動きを宣言する。
+  //
+  // data-anim と同じ要素に付けてよいが、**同じプロパティを取り合わせないこと**。
+  // 画像は data-anim="soft-in"（ぼかしだけ）と data-motion="ken-burns"（transform だけ）
+  // の組み合わせにしている。両方が scale を書くと、後から描画される方に
+  // 上書きされて登場アニメーションが消える。
+  //
+  // 寄る量は「1 秒あたり何％」で持ち、上下限で挟む。背景モチーフと同じ考え方で、
+  // 固定量を尺いっぱいで割ると、長いシーンほど遅くなって気づかなくなるため。
+
+  const KEN_BURNS = {
+    // 写真向け。枠いっぱいに敷かれた画像（object-fit: cover）を想定していて、
+    // 寄っても切れるのは元から見えていない部分だけ。
+    photo: { rate: 0.003, min: 0.05, max: 0.14, pan: 0.02 },
+    // 図・画面キャプチャ向け。object-fit: contain なので寄ると端が欠ける。
+    // 欠ける量を片側 3% までに抑え、流し（pan）も入れない。
+    diagram: { rate: 0.0015, min: 0.03, max: 0.06, pan: 0 },
+  };
+
+  // 流す向き。既定は center（純粋な寄りだけ）。
+  // 文字を重ねるレイアウトで流すと、読ませたい部分が動いてしまうため。
+  const KEN_BURNS_DIRECTIONS = {
+    center: { x: 0, y: 0 },
+    tl: { x: -1, y: -1 }, tr: { x: 1, y: -1 },
+    bl: { x: -1, y: 1 }, br: { x: 1, y: 1 },
+  };
+
+  /**
+   * ゆっくり寄りながら、わずかに流す。
+   *
+   * pan は拡大による“のりしろ”（片側 zoom/2）より必ず小さくすること。
+   * 超えると、拡大が浅いうちに画像の外側が覗いてしまう。
+   */
+  function addKenBurns(el, start, duration, preset) {
+    const zoom = Math.min(preset.max, Math.max(preset.min, duration * preset.rate));
+    const dir = KEN_BURNS_DIRECTIONS[el.getAttribute("data-motion-dir")] || KEN_BURNS_DIRECTIONS.center;
+    tl.fromTo(el,
+      { scale: 1, xPercent: 0, yPercent: 0 },
+      {
+        scale: 1 + zoom,
+        xPercent: dir.x * preset.pan * 100,
+        yPercent: dir.y * preset.pan * 100,
+        duration, ease: "none",
+      }, start);
+  }
+
+  const MOTIONS = {
+    "ken-burns": (el, start, duration) => addKenBurns(el, start, duration, KEN_BURNS.photo),
+    "ken-burns-soft": (el, start, duration) => addKenBurns(el, start, duration, KEN_BURNS.diagram),
+  };
+
+  document.querySelectorAll("[data-motion]").forEach((el) => {
+    const name = el.getAttribute("data-motion");
+    const motion = MOTIONS[name];
+    if (!motion) {
+      console.warn(`[motion] 未定義の data-motion="${name}" を無視します`);
+      return;
+    }
+    // 動く時間は、その要素を含む .clip の持ち時間に合わせる。
+    // 動かす要素自身が .clip とは限らない（ギャラリーは figure が .clip で、
+    // 動かすのはその中の img）。
+    const owner = el.closest(".clip[data-start]");
+    if (!owner) {
+      console.warn(`[motion] data-motion="${name}" の要素が .clip の中にありません`);
+      return;
+    }
+    const start = parseFloat(owner.getAttribute("data-start"));
+    const duration = parseFloat(owner.getAttribute("data-duration"));
+    if (isNaN(start) || isNaN(duration) || duration <= 0) return;
+    motion(el, start, duration);
   });
 
   // --- 5. 実測オートフィット（自動適応の第 3 層） ---

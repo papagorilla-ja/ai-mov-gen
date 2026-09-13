@@ -1,6 +1,11 @@
 {% set img = c['images'][0] if c['images'] else none %}
+{# シーンは 1 分前後あるため、寄りが無いと写真が完全な静止画になる。
+   object-fit: cover で敷いてあり .slide が切り取るので、寄っても破綻しない。
+   文字を重ねるレイアウトなので流し（data-motion-dir）は入れず、寄りだけにする。
+   登場は soft-in（ぼかしのみ）。blur-in だと scale を取り合って寄りが消える。 #}
 {% if img and img['src'] %}
-<img class="clip full-screen-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.4" data-anim="blur-in">
+<img class="clip full-screen-image" src="{{ img['src'] }}" data-seq="head" data-seq-offset="-0.4"
+     data-anim="soft-in" data-motion="ken-burns">
 {% else %}
 <div class="clip full-screen-image full-screen-image--placeholder" data-seq="head" data-seq-offset="-0.4" data-anim="fade"></div>
 {% endif %}
