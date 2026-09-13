@@ -152,31 +152,17 @@
         <div class="text-caption text-medium-emphasis">※ ラベルと数値は同じ個数にしてください。</div>
       </div>
 
-      <!-- ── 画像（専用エディタ） ─────────────────── -->
+      <!-- ── 画像 ─────────────────────────────────
+           取り込みは下の「素材スロット」に一本化している。
+           以前はここにもファイル選択欄があり、同じ素材スロットを
+           2 か所から触れる状態だったため、どちらが正か画面から分からなかった。
+           枚数はレイアウトの capacity が決めるので「枠を追加」も置かない。 -->
       <div v-else-if="field.kind === 'images'" class="mb-4">
-        <div class="d-flex align-center mb-2">
-          <span class="text-subtitle-2 font-weight-bold">{{ field.label }}</span>
-          <v-spacer />
-          <v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-plus"
-                 @click="listValue('images').push({ src: '', caption: '' })">枠を追加</v-btn>
-        </div>
+        <div class="text-subtitle-2 font-weight-bold mb-1">{{ field.label }}</div>
         <div v-if="field.hint" class="text-caption text-medium-emphasis mb-2">{{ field.hint }}</div>
-        <v-card v-for="(img, idx) in listValue('images')" :key="idx" variant="outlined" class="pa-3 mb-2">
-          <div class="d-flex align-center mb-2">
-            <v-chip size="x-small" variant="tonal" color="primary">{{ idx + 1 }}</v-chip>
-            <v-spacer />
-            <v-btn icon="mdi-delete-outline" size="x-small" variant="text" color="error"
-                   @click="listValue('images').splice(idx, 1)" />
-          </div>
-          <v-file-input
-            label="画像を選択してアップロード" accept="image/*" density="compact" variant="outlined"
-            prepend-icon="mdi-camera-plus-outline" hide-details class="mb-2"
-            :loading="uploadingSlot === idx + 1"
-            @change="e => emit('upload-image', { slot: idx + 1, file: e.target.files?.[0] })"
-          />
-          <v-text-field v-model="img.src" label="画像パス（確認用）" density="compact" hide-details class="mb-2" />
-          <v-text-field v-model="img.caption" label="キャプション" density="compact" hide-details />
-        </v-card>
+        <v-alert type="info" variant="tonal" density="compact" class="text-caption">
+          画像の取り込みとキャプションは、下の「素材スロット」で行います。
+        </v-alert>
       </div>
     </template>
   </div>
@@ -195,9 +181,7 @@ import LayoutTreeField from './LayoutTreeField.vue'
 const props = defineProps({
   modelValue: { type: Object, required: true },   // 正規化済みの slide_content_json
   typeDef: { type: Object, default: null },       // /api/v1/layouts の types の 1 件
-  uploadingSlot: { type: Number, default: 0 },
 })
-const emit = defineEmits(['upload-image'])
 
 const content = computed(() => props.modelValue)
 
