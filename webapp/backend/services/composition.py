@@ -71,12 +71,29 @@ def resolve_scene(scene: Scene, assets_map: dict | None = None):
     # 画像は media 型のレイアウトだけが内容として受け取る。
     # それ以外のレイアウトでは、従来どおり絶対配置のアセットとして重ねる
     # （generate_composition 側で処理する）。
+    #
+    # 画像そのものは素材スロットが正、キャプションは slide_content が正。
+    # スロット N の画像に対応するキャプションは images[N-1] にある
+    # （画面側もこの対応で編集している）。以前はここで images を
+    # caption="" ごと丸ごと置き換えていたため、入力したキャプションが
+    # 描画時に必ず消えていた。
     if assets_map and spec.type_id == "media":
-        scene_assets = sorted(assets_map.get(scene.id, []), key=lambda a: a.slot)
-        from_assets = [{"src": a.file_path, "caption": ""} for a in scene_assets if a.file_path]
-        if from_assets:
-            limit = spec.capacity.max if not spec.capacity.any else len(from_assets)
-            content["images"] = from_assets[:limit]
+        scene_assets = [a for a in assets_map.get(scene.id, []) if a.file_path]
+        if scene_assets:
+            captions = content.get("images") or []
+
+            def caption_for(slot: int) -> str:
+                idx = slot - 1
+                if 0 <= idx < len(captions) and isinstance(captions[idx], dict):
+                    return captions[idx].get("caption") or ""
+                return ""
+
+            merged = [
+                {"src": a.file_path, "caption": caption_for(a.slot)}
+                for a in sorted(scene_assets, key=lambda a: a.slot)
+            ]
+            limit = len(merged) if spec.capacity.any else spec.capacity.max
+            content["images"] = merged[:limit]
 
     return spec, content, _types.count_of(spec.type_id, content)
 

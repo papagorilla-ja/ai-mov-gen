@@ -1,21 +1,40 @@
 <template>
   <div class="assets-slot-container pa-4 border border-thin rounded glass-card">
-    <div class="text-subtitle-2 font-weight-bold mb-3">素材スロット (最大 3 スロット)</div>
+    <div class="d-flex align-center justify-space-between mb-3 flex-wrap ga-2">
+      <div class="text-subtitle-2 font-weight-bold">
+        素材スロット
+        <span class="text-caption text-medium-emphasis font-weight-regular ms-1">{{ slotHint }}</span>
+      </div>
+      <span class="text-caption text-medium-emphasis d-flex align-center">
+        <v-icon icon="mdi-content-paste" size="x-small" class="me-1" />
+        画像をコピーして {{ pasteKeyLabel }} で貼り付けできます
+      </span>
+    </div>
 
     <v-row dense>
-      <v-col v-for="slotNum in [1, 2, 3]" :key="slotNum" cols="4">
-        <div class="slot-wrapper d-flex flex-column align-center pa-2 border border-thin rounded glass-card position-relative">
-          <div class="text-caption font-weight-medium mb-1 text-medium-emphasis">スロット {{ slotNum }}</div>
-          
+      <v-col v-for="slotNum in visibleSlots" :key="slotNum" :cols="slotCols">
+        <div
+          class="slot-wrapper d-flex flex-column align-center pa-2 border border-thin rounded glass-card position-relative"
+          :class="{ 'is-unused': slotNum > effectiveSlotCount }"
+        >
+          <div class="text-caption font-weight-medium mb-1 text-medium-emphasis">
+            スロット {{ slotNum }}
+            <span v-if="slotNum > effectiveSlotCount" class="text-warning">・未使用</span>
+          </div>
+
           <div
             class="upload-area d-flex flex-column align-center justify-center cursor-pointer rounded overflow-hidden"
-            :class="{ 'has-file': getAsset(slotNum), 'dragover': isDragOver[slotNum] }"
+            :class="{ 'has-file': getAsset(slotNum), 'dragover': dragOverSlot === slotNum }"
             style="width: 100%; height: 100px; position: relative;"
             @dragover.prevent="onDragOver(slotNum)"
-            @dragleave.prevent="onDragLeave(slotNum)"
+            @dragleave.prevent="onDragLeave()"
             @drop.prevent="onDrop($event, slotNum)"
             @click="triggerFileInput(slotNum)"
           >
+            <v-overlay :model-value="uploadingSlot === slotNum" contained persistent
+                       class="align-center justify-center">
+              <v-progress-circular indeterminate size="28" color="primary" />
+            </v-overlay>
             <!-- 既存素材あり -->
             <template v-if="getAsset(slotNum)">
               <div v-if="getAsset(slotNum).asset_type === 'svg'" class="svg-preview d-flex flex-column align-center justify-center h-100 w-100">
@@ -79,6 +98,20 @@
               </v-btn>
             </template>
           </div>
+
+          <!-- キャプションはレイアウトが画像を内容として受け取るときだけ。
+               画像そのものはスロットが正、キャプションはスライド内容が正で、
+               サーバー側はスロット N とキャプション N を突き合わせて描画する。 -->
+          <v-text-field
+            v-if="showCaptions && slotNum <= effectiveSlotCount"
+            :model-value="captionFor(slotNum)"
+            @update:model-value="value => setCaption(slotNum, value)"
+            label="キャプション"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="mt-2 w-100 caption-field"
+          />
         </div>
       </v-col>
     </v-row>
@@ -201,23 +234,53 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { assetApi } from '@/api/asset'
 import { useUiStore } from '@/stores/ui'
+
+// 画像を内容として受け取らないレイアウトでは、素材は「添え物」として
+// 絶対配置で重ねられる。その用途の既定枠数。
+const DEFAULT_SLOT_COUNT = 3
+
+// 貼り付けた File は名前が空のことがある。サーバーは拡張子で形式を判定するため、
+// MIME から補ってやらないと 400 で弾かれる。
+const PASTE_EXTENSIONS = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/svg+xml': '.svg',
+}
 
 const props = defineProps({
   sceneId: {
     type: String,
     required: true
+  },
+  // レイアウトが必要とする画像の枚数。media 型なら capacity.max、それ以外は既定値。
+  slotCount: {
+    type: Number,
+    default: DEFAULT_SLOT_COUNT
+  },
+  // レイアウトが画像を内容として受け取る（media 型）ときだけキャプション欄を出す。
+  showCaptions: {
+    type: Boolean,
+    default: false
+  },
+  // スロット順のキャプション。captions[0] がスロット 1 に対応する。
+  captions: {
+    type: Array,
+    default: () => []
   }
 })
 
-const emit = defineEmits(['change'])
+const emit = defineEmits(['update:captions'])
 const ui = useUiStore()
 
 const assets = ref([])
 const fileInputs = ref({})
-const isDragOver = reactive({ 1: false, 2: false, 3: false })
+const dragOverSlot = ref(0)
+const uploadingSlot = ref(0)
 
 const settingsDialog = ref(false)
 const svgDialog = ref(false)
@@ -236,8 +299,39 @@ const configForm = reactive({
   border_radius: '16px'
 })
 
+// レイアウトが要求する枚数。0 や負値が来ても 1 枠は必ず出す。
+const effectiveSlotCount = computed(() => Math.max(1, props.slotCount || DEFAULT_SLOT_COUNT))
+
+// 表示するスロット番号。
+// 要求枚数より多く登録済みの素材があるときは、そこまで並べて「未使用」と添える。
+// 隠してしまうと、レイアウトを絞った瞬間に画面から削除できない素材が生まれる。
+const visibleSlots = computed(() => {
+  const highest = assets.value.reduce((max, a) => Math.max(max, a.slot || 0), 0)
+  const count = Math.max(effectiveSlotCount.value, highest)
+  return Array.from({ length: count }, (_, i) => i + 1)
+})
+
+// 4 枠以上は 1 行に収まるよう狭くする。3 枠までは従来と同じ大きさ。
+const slotCols = computed(() => (visibleSlots.value.length > 3 ? 3 : 4))
+
+const slotHint = computed(() =>
+  props.showCaptions
+    ? `（このレイアウトは画像 ${effectiveSlotCount.value} 枚を使います）`
+    : `（最大 ${effectiveSlotCount.value} スロット／スライドに重ねて表示）`
+)
+
+// Mac と Windows で案内する修飾キーを変える
+const pasteKeyLabel = computed(() =>
+  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? 'Cmd + V' : 'Ctrl + V'
+)
+
 onMounted(async () => {
   await fetchAssets()
+  window.addEventListener('paste', onPaste)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', onPaste)
 })
 
 watch(() => props.sceneId, async () => {
@@ -249,7 +343,6 @@ async function fetchAssets() {
   try {
     const { data } = await assetApi.list(props.sceneId)
     assets.value = data
-    emit('change', data)
   } catch (e) {
     console.error(e)
   }
@@ -278,8 +371,15 @@ async function onFileSelected(event, slot) {
   await uploadFile(file, slot)
 }
 
-async function uploadFile(file, slot) {
-  const ext = file.name.split('.').pop().toLowerCase()
+/**
+ * 1 ファイルをスロットへ登録する。
+ *
+ * filename は貼り付け経路のためにある。クリップボード由来の File は
+ * 名前が空のことがあり、そのままでは拡張子が取れない。
+ */
+async function uploadFile(file, slot, filename = null) {
+  const name = filename || file.name || ''
+  const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : ''
   let assetType = 'image'
   if (ext === 'svg') {
     assetType = 'svg'
@@ -287,39 +387,93 @@ async function uploadFile(file, slot) {
     assetType = 'video'
   }
 
+  uploadingSlot.value = slot
   try {
     if (assetType === 'svg') {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const svgContent = e.target.result
-        await assetApi.uploadSvg(props.sceneId, slot, svgContent)
-        ui.notify('SVG を登録しました')
-        await fetchAssets()
-      }
-      reader.readAsText(file)
+      const svgContent = await file.text()
+      await assetApi.uploadSvg(props.sceneId, slot, svgContent)
+      ui.notify(`スロット ${slot} に SVG を登録しました`)
     } else {
-      await assetApi.upload(props.sceneId, slot, file, assetType)
-      ui.notify('素材をアップロードしました')
-      await fetchAssets()
+      await assetApi.upload(props.sceneId, slot, file, assetType, name || undefined)
+      ui.notify(`スロット ${slot} に素材を登録しました`)
     }
+    await fetchAssets()
   } catch (e) {
     ui.notifyError('アップロードに失敗しました: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    uploadingSlot.value = 0
   }
 }
 
 function onDragOver(slot) {
-  isDragOver[slot] = true
+  dragOverSlot.value = slot
 }
 
-function onDragLeave(slot) {
-  isDragOver[slot] = false
+function onDragLeave() {
+  dragOverSlot.value = 0
 }
 
 async function onDrop(event, slot) {
-  isDragOver[slot] = false
+  dragOverSlot.value = 0
   const file = event.dataTransfer.files[0]
   if (!file) return
   await uploadFile(file, slot)
+}
+
+// ---- クリップボードからの貼り付け ----
+//
+// 画像生成 AI の画面で画像をコピーして、この画面で貼り付けるだけで取り込める。
+// 「ダウンロード → ファイル選択 → アップロード」の 3 手が消える。
+
+/** レイアウトが使う範囲での最初の空きスロット。無ければ 0。 */
+function firstEmptySlot() {
+  for (let slot = 1; slot <= effectiveSlotCount.value; slot += 1) {
+    if (!getAsset(slot)) return slot
+  }
+  return 0
+}
+
+async function onPaste(event) {
+  // 入力欄にフォーカスがあるときは、その欄への貼り付けを優先する。
+  // Web ページから画像をコピーすると text/html も一緒に入るため、
+  // ここで譲らないとキャプション欄に貼れなくなる。
+  const active = document.activeElement
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+    return
+  }
+
+  // 画像が入っているときだけ横取りする。文字の貼り付けは邪魔しない。
+  const items = Array.from(event.clipboardData?.items || [])
+  const imageItem = items.find((i) => i.type.startsWith('image/'))
+  if (!imageItem) return
+
+  const file = imageItem.getAsFile()
+  if (!file) return
+  event.preventDefault()
+
+  const slot = firstEmptySlot()
+  if (!slot) {
+    ui.notifyError('空きスロットがありません。入れ替えたいスロットの素材を削除してください。')
+    return
+  }
+  await uploadFile(file, slot, `pasted${PASTE_EXTENSIONS[imageItem.type] || '.png'}`)
+}
+
+// ---- キャプション ----
+//
+// 画像そのものはスロットが正、キャプションはスライド内容が正。
+// 親（VideoEditorView）が slideContent.images[] に書き戻す。
+
+function captionFor(slot) {
+  return props.captions[slot - 1] || ''
+}
+
+function setCaption(slot, value) {
+  const next = []
+  for (let s = 1; s <= effectiveSlotCount.value; s += 1) {
+    next.push(s === slot ? value : (props.captions[s - 1] || ''))
+  }
+  emit('update:captions', next)
 }
 
 async function deleteAsset(slot) {
@@ -415,7 +569,16 @@ async function saveSvg() {
 <style scoped>
 .slot-wrapper {
   background: rgba(255, 255, 255, 0.03);
-  height: 155px;
+  /* キャプション欄の有無で高さが変わるため、固定値ではなく下限だけ決める */
+  min-height: 155px;
+}
+/* レイアウトが使わないスロット。触れなくはしない（削除できなくなるため）が、
+   見た目で「これは映らない」と分かるようにする。 */
+.slot-wrapper.is-unused {
+  opacity: 0.45;
+}
+.caption-field :deep(input) {
+  font-size: 0.75rem;
 }
 .upload-area {
   background: rgba(255, 255, 255, 0.05);

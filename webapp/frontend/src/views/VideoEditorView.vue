@@ -375,8 +375,6 @@
                 <SceneContentForm
                   v-model="slideContent"
                   :type-def="currentTypeDef"
-                  :uploading-slot="uploadingImageSlot"
-                  @upload-image="handleSlideImageUpload"
                 />
 
                 <v-textarea
@@ -491,7 +489,15 @@
                 </div>
               </v-card>
 
-              <SceneAssetSlot v-if="selectedScene" :scene-id="selectedScene.id" @change="handleAssetsChange" />
+              <!-- 画像の取り込み口はここ 1 か所。枚数はレイアウトの capacity が決める。 -->
+              <SceneAssetSlot
+                v-if="selectedScene"
+                :scene-id="selectedScene.id"
+                :slot-count="assetSlotCount"
+                :show-captions="isMediaLayout"
+                :captions="slotCaptions"
+                @update:captions="applySlotCaptions"
+              />
             </div>
             <div v-else class="text-center py-16 text-medium-emphasis">
               左側のシーン一覧から編集するシーンを選択してください。
@@ -832,7 +838,6 @@ import ScenarioRouteB from '@/components/ScenarioRouteB.vue'
 import ScenarioRouteC from '@/components/ScenarioRouteC.vue'
 import { useScenarioStore } from '@/stores/scenario'
 import { scenarioApi } from '@/api/scenario'
-import { assetApi } from '@/api/asset'
 import LayoutPicker from '@/components/LayoutPicker.vue'
 import SceneContentForm from '@/components/SceneContentForm.vue'
 import { useLayoutsStore } from '@/stores/layouts'
@@ -900,7 +905,6 @@ const editForm = reactive({
 // レイアウトを切り替えると入力が消える原因にもなっていた。
 const slideContent = ref({})
 const layoutPickerOpen = ref(false)
-const uploadingImageSlot = ref(0)
 
 const layoutsStore = useLayoutsStore()
 const currentLayoutDef = computed(() => layoutsStore.byId[editForm.layout_type] || null)
@@ -973,25 +977,35 @@ async function handleLayoutSelected(layout) {
 }
 
 
-async function handleSlideImageUpload({ slot = 1, file } = {}) {
-  if (!file || !selectedScene.value) return
-  uploadingImageSlot.value = slot
-  try {
-    const { data } = await assetApi.upload(selectedScene.value.id, slot, file, 'image')
-    if (data && data.file_path) {
-      // images[] はレイアウトが受け取る画像スロット。slot は 1 始まり。
-      if (!Array.isArray(slideContent.value.images)) slideContent.value.images = []
-      while (slideContent.value.images.length < slot) {
-        slideContent.value.images.push({ src: '', caption: '' })
-      }
-      slideContent.value.images[slot - 1].src = data.file_path
-      ui.notify('スライド用画像をアップロードしました。')
-    }
-  } catch (e) {
-    ui.notifyError('画像のアップロードに失敗しました: ' + (e.response?.data?.detail || e.message))
-  } finally {
-    uploadingImageSlot.value = 0
-  }
+// ---- 画像スロットとレイアウトの対応 ----
+//
+// media 型のレイアウトは画像を「内容」として受け取り、必要枚数を capacity で
+// 宣言している（1 枚のものから 4 枚のギャラリーまで）。それ以外の型では
+// 素材は絶対配置の添え物なので、従来どおりの既定枠数を出す。
+
+const DEFAULT_ASSET_SLOTS = 3
+
+const isMediaLayout = computed(() => currentLayoutDef.value?.type === 'media')
+
+const assetSlotCount = computed(() => {
+  const def = currentLayoutDef.value
+  if (!def || def.type !== 'media' || def.any_count) return DEFAULT_ASSET_SLOTS
+  return def.max || DEFAULT_ASSET_SLOTS
+})
+
+// キャプションはスライド内容 (images[]) が持つ。スロット N が images[N-1] に対応する。
+const slotCaptions = computed(() =>
+  (Array.isArray(slideContent.value.images) ? slideContent.value.images : [])
+    .map((img) => (img && img.caption) || '')
+)
+
+function applySlotCaptions(list) {
+  if (!Array.isArray(slideContent.value.images)) slideContent.value.images = []
+  const images = slideContent.value.images
+  list.forEach((caption, idx) => {
+    while (images.length <= idx) images.push({ src: '', caption: '' })
+    images[idx].caption = caption
+  })
 }
 
 
@@ -1440,17 +1454,10 @@ function formatBytes(bytes) {
 
 
 
-function handleAssetsChange(assets) {
-  // 指示 P1-5: 画像指定の一本化
-  // スロット1の画像があれば slideContent.image_src を自動更新
-  const slot1 = assets.find(a => a.slot === 1)
-  if (slot1 && slot1.file_path) {
-    slideContent.image_src = slot1.file_path
-  } else if (!slot1) {
-    // スロット1が削除された場合のみクリアする（手動入力済みの場合は残るが、アセット連携優先）
-    slideContent.image_src = ''
-  }
-}
+// handleAssetsChange は撤去した。
+// slideContent.image_src（.value 抜きで Ref 自身に書いていたため元々効いていない）
+// への書き戻しをしていたが、image_src は images[] に置き換わった旧キーであり、
+// 画像パスの解決は composition.py が素材スロットから直接行っている。
 </script>
 
 <style scoped>
