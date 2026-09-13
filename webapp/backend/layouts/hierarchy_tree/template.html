@@ -1,18 +1,39 @@
 {% include "_partials/head.html" %}
 <div class="slide-body-area" data-fit>
-  {# 枝は CSS の擬似要素で引く。座標を計算しないので、
+  {# 枝は座標を計算せず、CSS の絶対配置だけで引く。
      文字の長さが変わっても線がずれない。
-     data-seq-index には階層の深さを入れ、同じ段のノードを同時に出す。 #}
+
+     枝を擬似要素ではなく実要素（span）にしているのは、GSAP が擬似要素を
+     掴めないため。擬似要素のままだと枝だけ最初から全部描かれてしまい、
+     「枝が伸びて、その先にノードが生える」という組み上がりが表現できない。
+
+     data-seq-index には階層の深さを入れ、同じ段のノードを同時に出す。
+     段の中では 親から下ろす枝 → 横線 → ノードへ下ろす枝 → ノード の順に
+     わずかずつ遅らせ、線が伸びた先に箱が現れるように見せる。 #}
   <ul class="tree-root">
     {% for node in [tree_root] recursive %}
     <li>
+      {% if loop.depth0 > 0 %}
+      <span class="clip tree-branch-h" data-seq="spread" data-seq-index="{{ loop.depth0 }}"
+            data-seq-offset="0.08" data-anim="draw-right"></span>
+      <span class="clip tree-branch-v" data-seq="spread" data-seq-index="{{ loop.depth0 }}"
+            data-seq-offset="0.16" data-anim="draw-down"></span>
+      {% endif %}
       <div class="clip tree-node{{ ' is-root' if loop.depth0 == 0 else '' }}"
-           data-seq="spread" data-seq-index="{{ loop.depth0 }}" data-anim="pop">
+           data-seq="spread" data-seq-index="{{ loop.depth0 }}"
+           data-seq-offset="0.24" data-anim="pop">
         {% if node['label'] %}<div class="tree-label">{{ node['label'] }}</div>{% endif %}
         {% if node['text'] %}<p class="tree-text">{{ node['text'] }}</p>{% endif %}
       </div>
       {% if node['children'] %}
-      <ul>{{ loop(node['children']) }}</ul>
+      {# 親から子の横線へ下ろす枝。子と同じスロットの先頭で描く。
+         span を ul の直下に置くのは、この枝の基準が ul の中央だから。
+         li にすると :first-of-type などの数えかたに混ざってしまう。 #}
+      <ul>
+        <span class="clip tree-branch-drop" data-seq="spread"
+              data-seq-index="{{ loop.depth0 + 1 }}" data-anim="draw-down"></span>
+        {{ loop(node['children']) }}
+      </ul>
       {% endif %}
     </li>
     {% endfor %}

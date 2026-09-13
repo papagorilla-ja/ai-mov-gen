@@ -4,16 +4,22 @@
 {% include "_partials/head.html" %}
 <div class="slide-body-area">
   <div class="diagram-stage fixed-ar venn-stage" data-count="{{ count }}" style="--dg-ar: {{ ar }}">
+    {# 円そのものを順に広げる。ベン図は「重なりが生まれる瞬間」が主題なので、
+       円が最初から全部あると、その瞬間が画面に現れない。
+       scale は GSAP が SVG の外接矩形の中心を基準に掛けるため、円は中心から広がる。 #}
     <svg class="diagram" viewBox="{{ viewbox }}">
       {% for ci in circles %}
-      <circle class="{{ ci['cls'] }}" cx="{{ ci['cx'] }}" cy="{{ ci['cy'] }}" r="{{ ci['r'] }}"
-              style="--dg-alpha: 0.30"></circle>
+      <circle class="clip {{ ci['cls'] }}" cx="{{ ci['cx'] }}" cy="{{ ci['cy'] }}" r="{{ ci['r'] }}"
+              style="--dg-alpha: 0.30"
+              data-seq="spread" data-seq-index="{{ loop.index0 }}"
+              data-anim="expand-circle"></circle>
       {% endfor %}
     </svg>
     {% for st in c['sets'][:circles|length] %}
     <div class="diagram-node venn-label"
          style="left: {{ label_pos[loop.index0]['left'] }}%; top: {{ label_pos[loop.index0]['top'] }}%">
-      <div class="clip" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="expand-circle">
+      <div class="clip" data-seq="spread" data-seq-index="{{ loop.index0 }}"
+           data-seq-offset="0.25" data-anim="fade">
         {% if st['label'] %}<div class="venn-label-title">{{ st['label'] }}</div>{% endif %}
         {% if st['text'] %}<p class="venn-label-text">{{ st['text'] }}</p>{% endif %}
       </div>

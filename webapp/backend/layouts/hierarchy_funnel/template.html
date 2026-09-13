@@ -1,9 +1,15 @@
 {% include "_partials/head.html" %}
 <div class="slide-body-area">
   <div class="diagram-stage funnel-stage" data-count="{{ count }}">
+    {# 帯そのものを上から順に落としていく。「通るたびに減る」という
+       このレイアウトの主題は、帯が順に現れることで初めて伝わる。
+       ピラミッド（下から積む）とは向きが逆。 #}
     <svg class="diagram" viewBox="{{ viewbox }}" preserveAspectRatio="none">
       {% for b in bands %}
-      <polygon class="dg-fill" points="{{ b['points'] }}" style="--dg-alpha: {{ b['alpha'] }}"></polygon>
+      <polygon class="clip dg-fill" points="{{ b['points'] }}"
+               style="--dg-alpha: {{ b['alpha'] }}"
+               data-seq="spread" data-seq-index="{{ loop.index0 }}"
+               data-anim="draw-down"></polygon>
       {% endfor %}
     </svg>
     {# 上から順に出す。絞り込まれていく順序そのものが伝えたいことなので、
@@ -13,7 +19,8 @@
          style="top: {{ bands[loop.index0]['top_pct'] }}%; left: 50%;
                 width: {{ bands[loop.index0]['width_pct'] }}%">
       <div class="clip funnel-body"
-           data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+           data-seq="spread" data-seq-index="{{ loop.index0 }}"
+           data-seq-offset="0.2" data-anim="rise">
         {% if it['label'] %}<div class="funnel-label">{{ it['label'] }}</div>{% endif %}
         {% if it['text'] %}<p class="funnel-text">{{ it['text'] }}</p>{% endif %}
       </div>
