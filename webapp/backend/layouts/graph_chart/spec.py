@@ -3,6 +3,27 @@ import json
 from layouts._registry import Capacity, LayoutSpec
 
 
+# グラフをどう開示するか。(data-anim, 秒数) の組。
+#
+# Chart.js 自身のアニメーションは使えない（animation: false のまま触らないこと）。
+# あちらは requestAnimationFrame 駆動で、hyperframes が
+# タイムラインを時刻 T へシークして 1 枚ずつ捕獲する方式とは同期せず、
+# 撮るたびに違う絵になってしまう。
+# 代わりに canvas を載せた箱を GSAP の clip-path で開ける。これならシークに追従する。
+#
+# 方向は種別で変える。棒と折れ線は「左から右へ描かれていく」のが読み順に合う。
+# 円は左右の方向を持たないので、中心から広がらせる。
+# 既定の 0.6 秒だと画面幅いっぱいの canvas では一瞬で通り過ぎるため、
+# data-anim-duration で伸ばしている。
+REVEAL_BY_TYPE = {
+    "bar": ("draw-right", 1.2),
+    "line": ("draw-right", 1.4),
+    "pie": ("expand-circle", 0.9),
+    "doughnut": ("expand-circle", 0.9),
+}
+DEFAULT_REVEAL = ("draw-right", 1.2)
+
+
 def _prepare(content: dict, ctx: dict) -> dict:
     """Chart.js の描画スクリプトを組み立てる。
 
@@ -15,7 +36,8 @@ def _prepare(content: dict, ctx: dict) -> dict:
 
     cfg = content.get("chart") or {}
     if not cfg.get("values"):
-        return {"chart_script": Markup(""), "canvas_id": "", "chart_w": 0, "chart_h": 0}
+        return {"chart_script": Markup(""), "canvas_id": "", "chart_w": 0, "chart_h": 0,
+                "reveal_anim": DEFAULT_REVEAL[0], "reveal_sec": DEFAULT_REVEAL[1]}
 
     style = ctx.get("style")
     palette = chart_palette(style)
@@ -66,8 +88,10 @@ def _prepare(content: dict, ctx: dict) -> dict:
     draw();
   }}
 }})();"""
+    reveal_anim, reveal_sec = REVEAL_BY_TYPE.get(chart_type, DEFAULT_REVEAL)
     return {"chart_script": Markup(script), "canvas_id": canvas_id,
-            "chart_w": chart_w, "chart_h": chart_h}
+            "chart_w": chart_w, "chart_h": chart_h,
+            "reveal_anim": reveal_anim, "reveal_sec": reveal_sec}
 
 
 SPEC = LayoutSpec(

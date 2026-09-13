@@ -1,7 +1,11 @@
 {% include "_partials/head.html" %}
 <div class="slide-body-area">
   {% if canvas_id %}
-  <div class="clip chart-canvas-wrap" data-seq="head" data-seq-offset="0.4" data-anim="rise">
+  {# 開示のしかたはグラフの種別で決まる（spec.py の REVEAL_BY_TYPE）。
+     Chart.js 側のアニメーションは使えないため、canvas を載せたこの箱を
+     GSAP の clip-path で開ける。 #}
+  <div class="clip chart-canvas-wrap" data-seq="head" data-seq-offset="0.4"
+       data-anim="{{ reveal_anim }}" data-anim-duration="{{ reveal_sec }}">
     <canvas id="{{ canvas_id }}" width="{{ chart_w }}" height="{{ chart_h }}"></canvas>
   </div>
   <script>{{ chart_script }}</script>

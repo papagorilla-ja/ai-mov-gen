@@ -364,6 +364,13 @@
       const fromVars = Object.assign({ opacity: 0 }, spec.from);
       const toVars = Object.assign({ opacity: 1, ease: "power2.out", duration: 0.7 }, spec.to);
 
+      // data-anim-duration で登場にかける秒数だけ上書きできる。
+      // 同じ動きでも、大きな面（グラフの canvas など）を既定の 0.6 秒で
+      // 開示すると一瞬で通り過ぎてしまう。速さ違いの語彙を増やすより、
+      // 使う側が秒数だけ指定できる方が語彙が散らからない。
+      const animSeconds = parseFloat(el.getAttribute("data-anim-duration"));
+      if (animSeconds > 0) toVars.duration = animSeconds;
+
       gsap.set(el, { opacity: 0 });
       tl.fromTo(el, fromVars, toVars, start);
       // CSS プロパティの補間では表せない動き（数字のカウントなど）を足す。
