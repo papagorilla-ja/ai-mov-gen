@@ -85,6 +85,13 @@ class LayoutSpec:
     phase: str = "P0"                           # カタログ上のフェーズ表示
     # 既定のサンプルを上書きしたいときだけ指定する（通常は型の sample を使う）
     sample: dict | None = None
+    # そのレイアウトでしか起きない挙動を、編集フォームの該当項目に添える注記。
+    #     {"lead": "数字を入れると 0 から増えていく演出が付きます"}
+    # 型（_types.py）の hint は同じ型のレイアウト全部に出てしまうため、
+    # 「このレイアウトのときだけ言いたいこと」はこちらに書く。
+    # 例: 大きな数字はカウントアップするが、同じ statement 型の
+    #     見出し・引用では起きない。
+    field_notes: dict[str, str] | None = None
     # テンプレートに渡す追加の変数を組み立てるフック。
     # グラフの Chart.js スクリプトのように「テンプレートでは書けないが、
     # そのレイアウトにしか関係しない」処理をレイアウト側に閉じ込めるためのもの。
@@ -387,6 +394,7 @@ def catalog() -> list[dict]:
                     "min": s.capacity.min, "max": s.capacity.max,
                     "ideal": list(s.capacity.ideal), "any_count": s.capacity.any,
                     "aspect": list(s.aspect), "phase": s.phase,
+                    "field_notes": s.field_notes or {},
                 }
                 for s in specs
             ],

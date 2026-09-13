@@ -35,6 +35,10 @@ SPEC = LayoutSpec(
         "推移や構成比を見せたいなら通常のグラフを使う。"
     ),
     capacity=Capacity(min=3, max=6, ideal=(3, 5)),
+    field_notes={
+        "chart": "入力した順ではなく、数値の大きい順に並べ替えて表示します。"
+                 "棒の長さは最大値に対する割合で、左から伸びる演出が付きます。",
+    },
     veil=0.78, orbs=1, phase="P1", prepare=_prepare,
     sample={"chart": {"type": "bar",
                       "labels": ["手順書の不足", "引き継ぎ不足", "確認の抜け", "ツールの使い方", "その他"],

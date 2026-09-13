@@ -60,13 +60,17 @@
   // 動きの速さ。いずれも「1 周期に何秒かけるか」で持つ。
   // 尺で割った移動量にせず周期で持つのは、15 分の動画でも 1 分の動画でも
   // 「見た目の速さ」を同じにするため。
+  //
+  // 当初はもっと遅く（方眼 1 タイル 40 秒など）していたが、実際の動画で
+  // 「動いていることに気づかない」ため約 3 倍に上げた。
+  // これ以上速くすると本文と注意を奪い合うので、上げるときは実物で確かめること。
   const GRID_TILE_PX = 60;      // CSS の background-size と揃える
-  const GRID_CYCLE_SEC = 40;    // 方眼が 1 タイル進む秒数
+  const GRID_CYCLE_SEC = 13;    // 方眼が 1 タイル進む秒数（約 4.6 px/s）
   const WAVE_STRIPE_PX = 58;    // CSS の repeating-linear-gradient と揃える
-  const WAVE_CYCLE_SEC = 30;    // 縞が 1 本ぶん進む秒数
-  const DOT_HALF_SEC = 7;       // 点の明滅の半周期
-  const MESH_HALF_SEC = 45;     // 色玉が片道を巡る秒数
-  const NOISE_HALF_SEC = 50;    // 光が片道ぶん広がる秒数
+  const WAVE_CYCLE_SEC = 10;    // 縞が 1 本ぶん進む秒数（約 5.8 px/s）
+  const DOT_HALF_SEC = 4.5;     // 点の明滅の半周期
+  const MESH_HALF_SEC = 16;     // 色玉が片道を巡る秒数
+  const NOISE_HALF_SEC = 18;    // 光が片道ぶん広がる秒数
 
   /** 模様を一定の速さで流す。1 周期の距離と秒数から総移動量を決める。 */
   function addDrift(target, dx, dy, cycleSec, total) {
@@ -101,12 +105,12 @@
     // 層は inset:-80px と blur(40px) で画面より大きいため、この程度の
     // 回転・拡大では縁が入り込まない。角度を増やすときは縁が出ないか要確認。
     mesh: (motif, glow, total) =>
-      addOscillation(motif, { rotation: -3, scale: 1.06 }, { rotation: 3, scale: 1.12 },
+      addOscillation(motif, { rotation: -5, scale: 1.06 }, { rotation: 5, scale: 1.16 },
                      MESH_HALF_SEC, total),
 
     // 点の明滅。位置を動かすとタイルの継ぎ目が目に付くので、濃さだけ変える。
     dots: (motif, glow, total) =>
-      addOscillation(motif, { opacity: 0.7 }, { opacity: 1 }, DOT_HALF_SEC, total),
+      addOscillation(motif, { opacity: 0.55 }, { opacity: 1 }, DOT_HALF_SEC, total),
 
     // 斜めの帯を流す。
     waves: (motif, glow, total) =>
@@ -115,7 +119,7 @@
     // 粒そのものは動かさない。1px 単位の粒がずれるとフレームごとにちらつき、
     // 見づらいうえに動画の圧縮効率も落ちる。代わりに光の層だけ広げる。
     noise: (motif, glow, total) =>
-      addOscillation(glow, { scale: 1, opacity: 0.8 }, { scale: 1.12, opacity: 1 },
+      addOscillation(glow, { scale: 1, opacity: 0.7 }, { scale: 1.18, opacity: 1 },
                      NOISE_HALF_SEC, total),
 
     // 無地は何もしない。「内容に集中させたい」ときの選択肢なので動かさない。
