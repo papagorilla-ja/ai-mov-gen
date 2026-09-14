@@ -103,6 +103,32 @@ FONT_CHOICES = [
     },
 ]
 
+# 動きの性格。動画 1 本の中で「動きの作法」を揃えるための唯一のつまみ。
+#
+# レイアウトごと・要素ごとにパラメータを開放しない理由:
+#   50 レイアウト × 各要素 × 複数パラメータをユーザーに委ねると、1 本の動画の中で
+#   動きの性格がバラバラになり、視聴者は毎シーン「この動画の作法」を学び直すことになる。
+#   レイアウトの幅（layout_breadth）を絞っているのと同じ考え方。
+#
+# duration_scale は「動きにかける時間の倍率」。1 より大きいほどゆっくりになる。
+# 登場・退場・シーン切替だけでなく、背景モチーフの周期と Ken Burns の寄りにも
+# 同じ倍率が掛かる（app.js が #stage の属性から読む）。
+#
+# ease は「自分で ease を宣言していない語彙」にだけ適用される既定値。
+# clip-path やぼかしを動かす語彙は back 系で行き過ぎると値が不正になるため、
+# app.js 側で自前の ease を持たせて性格の影響を受けないようにしている。
+MOTION_CHARACTERS = [
+    {"value": "calm", "label": "落ち着き",
+     "description": "ゆっくり動く。説明が主役で、映像に気を取られたくないとき",
+     "duration_scale": 1.35, "ease": "power2.out"},
+    {"value": "standard", "label": "標準",
+     "description": "研修動画で扱いやすい速さ。迷ったらこれ",
+     "duration_scale": 1.0, "ease": "power2.out"},
+    {"value": "lively", "label": "躍動",
+     "description": "速く、弾んで動く。提案資料や短い告知向け",
+     "duration_scale": 0.72, "ease": "back.out(1.7)"},
+]
+
 # 読み上げ速度。生成した音声に後から掛ける倍率で、値がそのまま ffmpeg の atempo になる。
 # 換算の根拠: 生成済み 67 シーンの実測で、等倍は中央値 5.96 文字/秒（約 358 字/分）。
 BASE_CHARS_PER_SEC = 5.96
@@ -127,6 +153,7 @@ DEFAULTS = {
     "decor_style": "glass",
     "type_scale": "normal",
     "transition": "none",
+    "motion_character": "standard",
     "narration_speed": 1.0,
 }
 
@@ -147,6 +174,8 @@ _TYPE_VALUES = {o["value"] for o in TYPE_SCALES}
 _TRANSITION_VALUES = {o["value"] for o in TRANSITIONS}
 _FONT_STACKS = {o["value"]: o["stack"] for o in FONT_CHOICES}
 _SPEED_VALUES = tuple(o["value"] for o in NARRATION_SPEEDS)
+_MOTION_VALUES = {o["value"] for o in MOTION_CHARACTERS}
+_MOTION_BY_VALUE = {o["value"]: o for o in MOTION_CHARACTERS}
 
 # API / フロントエンドへまとめて渡すためのカタログ
 STYLE_OPTIONS = {
@@ -157,6 +186,7 @@ STYLE_OPTIONS = {
     # stack も渡す。画面側でフォント名をその書体自身で描いて見せるのに使う。
     "fonts": FONT_CHOICES,
     "narration_speeds": NARRATION_SPEEDS,
+    "motion_characters": MOTION_CHARACTERS,
     "defaults": DEFAULTS,
 }
 
@@ -170,6 +200,20 @@ def normalize_choice(value: str | None, allowed: set[str], fallback: str) -> str
     if value and value in allowed:
         return value
     return fallback
+
+
+def normalize_motion_character(value: str | None) -> str:
+    return normalize_choice(value, _MOTION_VALUES, DEFAULTS["motion_character"])
+
+
+def motion_character(style) -> dict:
+    """スタイルから動きの性格の定義（倍率と ease を含む）を引く。
+
+    app.js には倍率と ease を数値・文字列として渡す。
+    向こうに同じ表をもう 1 つ置くと必ず片方が腐るため、定義はここだけに持つ。
+    """
+    value = normalize_motion_character(getattr(style, "motion_character", None) if style else None)
+    return _MOTION_BY_VALUE[value]
 
 
 def normalize_narration_speed(value) -> float:

@@ -10,6 +10,7 @@ from layouts import _registry as layouts
 from layouts import _render, _types
 from services.design_tokens import (
     build_theme_css,
+    motion_character,
     normalize_transition,
     stage_classes,
 )
@@ -466,6 +467,13 @@ def generate_composition(
     # 切替トランジションは app.js が読む data 属性で伝える。
     stage["class"] = stage_classes(style)
     stage["data-transition"] = normalize_transition(style.transition)
+    # 動きの性格。app.js は倍率と ease を数値・文字列として受け取るだけにする。
+    # 向こうに同じ表をもう 1 つ置くと、必ずどちらかが腐るため
+    # （語彙の定義は design_tokens.py だけに持つ）。
+    mc = motion_character(style)
+    stage["data-motion-character"] = mc["value"]
+    stage["data-motion-scale"] = f"{mc['duration_scale']:g}"
+    stage["data-motion-ease"] = mc["ease"]
     # 横並びのレイアウトは 4:3 で一段詰める必要がある。CSS が
     # [data-aspect="4:3"] で拾えるよう、ここで比率を書き出す。
     stage["data-aspect"] = aspect_of(style)

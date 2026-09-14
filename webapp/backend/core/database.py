@@ -79,6 +79,7 @@ async def init_db():
             # （既存動画の振る舞いを変えないため、既定値は入れない）
             "ALTER TABLE video_styles ADD COLUMN layout_breadth TEXT",
             "ALTER TABLE video_styles ADD COLUMN narration_speed REAL DEFAULT 1.0",
+            "ALTER TABLE video_styles ADD COLUMN motion_character TEXT",
         ]:
             try:
                 await conn.execute(text(stmt))

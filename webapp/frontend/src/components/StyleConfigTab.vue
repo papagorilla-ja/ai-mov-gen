@@ -235,6 +235,31 @@
           </v-card-text>
         </v-card>
 
+        <!-- ── 動きの性格 ── -->
+        <v-card class="mb-4 glass-card border-thin" variant="outlined">
+          <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">動きの性格</v-card-title>
+          <v-card-text class="pa-3">
+            <v-row dense>
+              <v-col v-for="opt in options?.motion_characters || []" :key="opt.value" cols="4">
+                <v-card
+                  :class="['choice-card pa-3', { 'is-selected': motionValue === opt.value }]"
+                  variant="outlined"
+                  @click="styleForm.motion_character = opt.value"
+                >
+                  <div class="text-caption font-weight-bold">{{ opt.label }}</div>
+                  <div class="text-caption text-medium-emphasis choice-desc">{{ opt.description }}</div>
+                </v-card>
+              </v-col>
+            </v-row>
+            <div class="text-caption text-medium-emphasis mt-2">
+              この動画全体の動きの速さと弾み方です。登場・退場・シーン切替に加えて、
+              背景モチーフの流れと画像の寄り（Ken Burns）にも同じだけ効きます。
+              レイアウトごとに動きを変えられるようにしていないのは、1 本の動画の中で
+              動きの作法がバラバラだと、視聴者が毎シーン見かたを学び直すことになるためです。
+            </div>
+          </v-card-text>
+        </v-card>
+
         <!-- ── 読み上げ速度 ── -->
         <v-card class="mb-4 glass-card border-thin" variant="outlined">
           <v-card-title class="text-body-2 font-weight-bold pa-3 pb-0">読み上げ速度</v-card-title>
@@ -378,6 +403,7 @@ const layoutsStore = useLayoutsStore()
 const breadthValue = computed(() => styleForm.layout_breadth || layoutsStore.defaultBreadth)
 // 小数の比較で選択中が判定できなくならないよう、いったん丸めて突き合わせる
 const speedValue = computed(() => Math.round((styleForm.narration_speed ?? 1.0) * 100) / 100)
+const motionValue = computed(() => styleForm.motion_character || 'standard')
 const ui = useUiStore()
 
 const previewUrl = ref('')
@@ -396,11 +422,12 @@ const options = computed(() => styleStore.options)
 
 // 画面サイズ以外の既定値はサーバーから取得したものを使う。
 // 画面サイズだけはサーバー側でも列の既定値を持つためここで定義する。
-const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null, layout_breadth: null, narration_speed: 1.0 }
+const LOCAL_DEFAULTS = { bgm_volume: 0.3, canvas_width: 1920, canvas_height: 1080, custom_css: '', template_id: null, layout_breadth: null, motion_character: null, narration_speed: 1.0 }
 
 // 変更するとコンポジションの構造（HTML）が変わるため、サーバーでの再生成が要る項目。
 // これ以外は iframe に CSS を流し込むだけで反映できる。
-const STRUCTURAL_FIELDS = ['canvas_width', 'canvas_height', 'transition']
+// motion_character は #stage の data-motion-* として書き出されるのでここに含める。
+const STRUCTURAL_FIELDS = ['canvas_width', 'canvas_height', 'transition', 'motion_character']
 // 配色・書体・キャンバスを変えると、レイアウトのサムネイルの見た目も変わる。
 // 取得済みのものは捨てて、次に開いたときに描き直させる。
 const THUMBNAIL_AFFECTING = ['color_primary', 'color_secondary', 'color_accent', 'color_bg',
@@ -422,6 +449,7 @@ const styleForm = reactive({
   type_scale: 'normal',
   transition: 'none',
   layout_breadth: null,
+  motion_character: null,
   narration_speed: 1.0,
   custom_css: '',
   bgm_volume: 0.3,

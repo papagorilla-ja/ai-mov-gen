@@ -30,6 +30,18 @@
   const totalDuration = parseFloat(stage.getAttribute("data-duration")) || 190;
   const compositionId = stage.getAttribute("data-composition-id") || "composition";
 
+  // 動きの性格（落ち着き / 標準 / 躍動）。動画 1 本で「動きの作法」を揃えるための
+  // 唯一のつまみで、値は design_tokens.py が決めて #stage に書き出している。
+  // ここに同じ表を持たないこと（片方だけ直す事故が必ず起きる）。
+  //
+  // motionScale は「動きにかける時間の倍率」。1 より大きいほどゆっくりになる。
+  // 登場・退場・シーン切替だけでなく、背景モチーフの周期と Ken Burns にも掛ける。
+  // 属性が無い古いコンポジションでは 1.0 / power2.out となり、挙動は変わらない。
+  const motionScale = parseFloat(stage.getAttribute("data-motion-scale")) > 0
+    ? parseFloat(stage.getAttribute("data-motion-scale"))
+    : 1;
+  const motionEase = stage.getAttribute("data-motion-ease") || "power2.out";
+
   // Create paused GSAP timeline
   const tl = gsap.timeline({ paused: true });
 
@@ -74,7 +86,7 @@
 
   /** 模様を一定の速さで流す。1 周期の距離と秒数から総移動量を決める。 */
   function addDrift(target, dx, dy, cycleSec, total) {
-    const k = total / cycleSec;
+    const k = total / (cycleSec * motionScale);
     tl.fromTo(target,
       { backgroundPosition: "0px 0px" },
       {
@@ -90,7 +102,7 @@
    * 動画の尺をはみ出し、タイムラインの総尺が動画より長くなってしまうため。
    */
   function addOscillation(target, from, to, halfSec, total) {
-    const runs = Math.max(1, Math.round(total / halfSec));
+    const runs = Math.max(1, Math.round(total / (halfSec * motionScale)));
     tl.fromTo(target, from, {
       ...to, duration: total / runs, ease: "sine.inOut", repeat: runs - 1, yoyo: true,
     }, 0);
@@ -188,6 +200,9 @@
 
   const transitionName = stage.getAttribute("data-transition") || "none";
   const transition = SLIDE_TRANSITIONS[transitionName] || null;
+  // 切替も動きの性格に従わせる。ここだけ速さが変わらないと、
+  // シーンの中身と切替でテンポがちぐはぐになる。
+  const transitionSec = transition ? transition.duration * motionScale : 0;
 
   /**
    * スライド1枚ぶんの表示・非表示をタイムラインに登録する。
@@ -203,7 +218,7 @@
     }
 
     // 登場：表示状態にしてから from の値でアニメーションさせる
-    const inDuration = Math.min(transition.duration, duration / 2);
+    const inDuration = Math.min(transitionSec, duration / 2);
     tl.set(el, { display: "flex", pointerEvents: "auto" }, start);
     tl.fromTo(
       el,
@@ -213,7 +228,7 @@
     );
 
     // 退場：持ち時間の内側で必ず完了させる（次のシーンと重ねない）
-    const outDuration = Math.min(0.35, duration / 3);
+    const outDuration = Math.min(0.35 * motionScale, duration / 3);
     tl.to(el, { ...transition.out, duration: outDuration, ease: "power2.in" }, start + duration - outDuration);
     tl.set(el, { display: "none", opacity: 0, pointerEvents: "none" }, start + duration);
   }
@@ -236,6 +251,11 @@
   //        逆向きの draw-left は使う場所がまだ無いので置いていない。
   //   3. 文字そのものを動かす … count-up
   //        CSS プロパティの補間では表せないため、extra に関数を持たせている。
+  //
+  // ease を書いていない語彙には「動きの性格」の ease が入る（躍動なら back 系）。
+  // clip-path の inset とぼかしの px は行き過ぎると値が不正になり、
+  // そのフレームだけ描画が飛ぶため、該当する語彙には ease を明示して
+  // 性格の影響を受けないようにしてある。
   const ANIMS = {
     none:            { from: {},                                            to: {} },
     fade:            { from: {},                                            to: { duration: 0.7 } },
@@ -246,15 +266,15 @@
     "scale-x":       { from: { scaleX: 0 },                                 to: { scaleX: 1, duration: 0.7, transformOrigin: "left center" } },
     // clip-path での「伸びる」表現。パスの長さを測らずに済み、
     // 要素が CSS で回転していても、その向きに沿って伸びる。
-    "draw-right":    { from: { clipPath: "inset(0 100% 0 0)" },             to: { clipPath: "inset(0 0% 0 0)", duration: 0.6 } },
-    "draw-down":     { from: { clipPath: "inset(0 0 100% 0)" },             to: { clipPath: "inset(0 0 0% 0)", duration: 0.6 } },
-    "draw-up":       { from: { clipPath: "inset(100% 0 0 0)" },             to: { clipPath: "inset(0% 0 0 0)", duration: 0.6 } },
+    "draw-right":    { from: { clipPath: "inset(0 100% 0 0)" },             to: { clipPath: "inset(0 0% 0 0)", duration: 0.6, ease: "power2.out" } },
+    "draw-down":     { from: { clipPath: "inset(0 0 100% 0)" },             to: { clipPath: "inset(0 0 0% 0)", duration: 0.6, ease: "power2.out" } },
+    "draw-up":       { from: { clipPath: "inset(100% 0 0 0)" },             to: { clipPath: "inset(0% 0 0 0)", duration: 0.6, ease: "power2.out" } },
     "expand-circle": { from: { scale: 0.6 },                                to: { scale: 1, duration: 0.8, ease: "power3.out" } },
     "grow-bar":      { from: { scaleY: 0 },                                 to: { scaleY: 1, duration: 0.7, transformOrigin: "center bottom" } },
-    "blur-in":       { from: { filter: "blur(14px)", scale: 1.04 },         to: { filter: "blur(0px)", scale: 1, duration: 0.9 } },
+    "blur-in":       { from: { filter: "blur(14px)", scale: 1.04 },         to: { filter: "blur(0px)", scale: 1, duration: 0.9, ease: "power2.out" } },
     // blur-in から scale を抜いたもの。data-motion で transform を使う要素に使う
     // （両方が scale を書くと登場アニメーションが上書きされて消える）。
-    "soft-in":       { from: { filter: "blur(14px)" },                      to: { filter: "blur(0px)", duration: 0.9 } },
+    "soft-in":       { from: { filter: "blur(14px)" },                      to: { filter: "blur(0px)", duration: 0.9, ease: "power2.out" } },
     flip:            { from: { rotationY: -70 },                            to: { rotationY: 0, duration: 0.7 } },
     // 数値が主役のときだけ使う。軽く持ち上げつつ、数字を 0 から目標値まで動かす。
     "count-up":      { from: { y: 18 },                                     to: { y: 0, duration: 0.5 }, extra: countUp },
@@ -362,7 +382,9 @@
       }
       const spec = ANIMS[animName] || ANIMS[DEFAULT_ANIM];
       const fromVars = Object.assign({ opacity: 0 }, spec.from);
-      const toVars = Object.assign({ opacity: 1, ease: "power2.out", duration: 0.7 }, spec.to);
+      // 既定の ease は「動きの性格」が決める。語彙が自分で ease を書いていれば
+      // そちらが勝つ（Object.assign の後勝ちで自然にそうなる）。
+      const toVars = Object.assign({ opacity: 1, ease: motionEase, duration: 0.7 }, spec.to);
 
       // data-anim-duration で登場にかける秒数だけ上書きできる。
       // 同じ動きでも、大きな面（グラフの canvas など）を既定の 0.6 秒で
@@ -370,14 +392,18 @@
       // 使う側が秒数だけ指定できる方が語彙が散らからない。
       const animSeconds = parseFloat(el.getAttribute("data-anim-duration"));
       if (animSeconds > 0) toVars.duration = animSeconds;
+      // 最後に動きの性格の倍率を掛ける。語彙の既定・属性の上書きの
+      // どちらから来た秒数でも、動画全体で同じ比率で伸び縮みさせるため。
+      toVars.duration *= motionScale;
 
       gsap.set(el, { opacity: 0 });
       tl.fromTo(el, fromVars, toVars, start);
       // CSS プロパティの補間では表せない動き（数字のカウントなど）を足す。
       if (spec.extra) spec.extra(el, start, duration);
 
-      const exitAt = Math.max(start, start + duration - EXIT_DURATION);
-      tl.to(el, { opacity: 0, duration: EXIT_DURATION, ease: "power2.in" }, exitAt);
+      const exitSec = EXIT_DURATION * motionScale;
+      const exitAt = Math.max(start, start + duration - exitSec);
+      tl.to(el, { opacity: 0, duration: exitSec, ease: "power2.in" }, exitAt);
     }
   });
 
@@ -417,16 +443,27 @@
    *
    * pan は拡大による“のりしろ”（片側 zoom/2）より必ず小さくすること。
    * 超えると、拡大が浅いうちに画像の外側が覗いてしまう。
+   *
+   * 動きの性格（motionScale）は rate・min・max・pan のすべてを同じだけ割る。
+   * 落ち着き（1.35）なら寄りが浅く遅く、躍動（0.72）なら深く速くなる。
+   * 4 つを揃って割るのが肝で、pan だけ据え置くと上の不変条件が崩れる
+   * （落ち着きで min が 0.037 まで下がると、のりしろ 1.85% に対して
+   *   pan 2% となり、画像の外側が覗く）。
    */
   function addKenBurns(el, start, duration, preset) {
-    const zoom = Math.min(preset.max, Math.max(preset.min, duration * preset.rate));
+    const rate = preset.rate / motionScale;
+    const min = preset.min / motionScale;
+    const max = preset.max / motionScale;
+    const pan = preset.pan / motionScale;
+
+    const zoom = Math.min(max, Math.max(min, duration * rate));
     const dir = KEN_BURNS_DIRECTIONS[el.getAttribute("data-motion-dir")] || KEN_BURNS_DIRECTIONS.center;
     tl.fromTo(el,
       { scale: 1, xPercent: 0, yPercent: 0 },
       {
         scale: 1 + zoom,
-        xPercent: dir.x * preset.pan * 100,
-        yPercent: dir.y * preset.pan * 100,
+        xPercent: dir.x * pan * 100,
+        yPercent: dir.y * pan * 100,
         duration, ease: "none",
       }, start);
   }
