@@ -18,6 +18,7 @@ from services.design_tokens import (
     normalize_decor,
     normalize_font,
     normalize_motif,
+    normalize_motion_character,
     normalize_narration_speed,
     normalize_transition,
     normalize_type_scale,
@@ -55,6 +56,7 @@ _NORMALIZED_FIELDS = {
     "type_scale": normalize_type_scale,
     "transition": normalize_transition,
     "layout_breadth": normalize_breadth,
+    "motion_character": normalize_motion_character,
     "narration_speed": normalize_narration_speed,
 }
 

@@ -30,6 +30,9 @@ class VideoStyle(Base):
     # 40 種あっても毎シーン違う図解が出ると、視聴者は毎回「図の読み方」を
     # 学び直すことになる。動画ごとにここで絞る。値の一覧は layouts/_registry.py。
     layout_breadth: Mapped[str | None] = mapped_column(String)
+    # 動きの性格（calm / standard / lively）。値の一覧と倍率は design_tokens.py。
+    # 登場・退場・シーン切替・背景モチーフ・Ken Burns のすべてに同じ倍率が掛かる。
+    motion_character: Mapped[str | None] = mapped_column(String)
     style_prompt: Mapped[str | None] = mapped_column(Text)
     custom_css: Mapped[str | None] = mapped_column(Text)
     default_speaker_id: Mapped[str | None] = mapped_column(String, ForeignKey("speakers.id"))
