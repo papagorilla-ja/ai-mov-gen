@@ -10,7 +10,7 @@
       <path class="dg-arrow" d="M5 26l7 7 7-7"/>
     </svg>
     {% endif %}
-    <div class="clip vflow-step" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right">
+    <div class="clip vflow-step" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="slide-right" data-anim-out="exit-left">
       <div class="vflow-mark">
         {% if st['icon'] and icon(st['icon']) %}{{ icon(st['icon']) }}
         {% else %}<span>{{ loop.index }}</span>{% endif %}

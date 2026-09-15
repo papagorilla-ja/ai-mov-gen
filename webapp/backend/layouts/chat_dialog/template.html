@@ -4,7 +4,8 @@
     {% for line in c['lines'] %}
     <div class="clip dialog-line speaker-{{ line['speaker']|lower }}"
          data-seq="spread" data-seq-index="{{ loop.index0 }}"
-         data-anim="{{ 'slide-left' if line['speaker'] == 'B' else 'slide-right' }}">
+         data-anim="{{ 'slide-left' if line['speaker'] == 'B' else 'slide-right' }}"
+         data-anim-out="{{ 'exit-right' if line['speaker'] == 'B' else 'exit-left' }}">
       <div class="bubble">{{ line['text'] }}</div>
     </div>
     {% endfor %}

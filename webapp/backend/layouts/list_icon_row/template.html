@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="icon-row" data-count="{{ count }}">
     {% for it in c['items'] %}
-    <div class="clip icon-cell" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+    <div class="clip icon-cell" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop" data-anim-out="contract">
       <div class="icon-cell-badge">
         {# アイコンが解決できない語だったときは番号に落とす。
            丸が空のまま並ぶと「読み込み失敗」に見えるため。 #}
