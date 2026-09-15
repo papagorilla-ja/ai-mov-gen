@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="grid-list" data-count="{{ count }}">
     {% for it in c['items'] %}
-    <div class="clip grid-cell" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+    <div class="clip grid-cell" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop" data-anim-out="contract">
       {% if it['icon'] and icon(it['icon']) %}
       <div class="grid-cell-icon">{{ icon(it['icon']) }}</div>
       {% endif %}

@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="stack-list" data-count="{{ count }}">
     {% for it in c['items'] %}
-    <div class="clip stack-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+    <div class="clip stack-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise" data-anim-out="sink">
       <div class="stack-side">
         {% if it['icon'] and icon(it['icon']) %}{{ icon(it['icon']) }}
         {% else %}<span class="stack-num">{{ '%02d' % loop.index }}</span>{% endif %}

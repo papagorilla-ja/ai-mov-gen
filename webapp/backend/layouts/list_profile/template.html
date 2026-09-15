@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="profile-row" data-count="{{ count }}">
     {% for it in c['items'] %}
-    <div class="clip profile-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+    <div class="clip profile-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise" data-anim-out="sink">
       {# 顔写真は持たない型なので、丸い枠にアイコンを置いて「人」の位置を示す。
          空の丸を出すと写真の読み込み失敗に見えるため、必ず何かを入れる。 #}
       <div class="profile-avatar">

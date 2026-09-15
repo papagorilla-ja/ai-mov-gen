@@ -1,7 +1,7 @@
 {% include "_partials/head.html" %}
 <div class="slide-body-area" data-fit>
   <div class="ba-row">
-    <div class="clip ba-card before" data-seq="spread" data-seq-index="0" data-anim="slide-right">
+    <div class="clip ba-card before" data-seq="spread" data-seq-index="0" data-anim="slide-right" data-anim-out="exit-left">
       <div class="ba-tag">Before</div>
       {% if c['left']['title'] %}<div class="ba-title">{{ c['left']['title'] }}</div>{% endif %}
       <p class="ba-text">{{ c['left']['text'] }}</p>
@@ -11,13 +11,13 @@
       <path class="dg-arrow" d="M4 14h46"/>
       <path class="dg-arrow" d="M40 5l11 9-11 9"/>
     </svg>
-    <div class="clip ba-card after" data-seq="spread" data-seq-index="2" data-anim="slide-left">
+    <div class="clip ba-card after" data-seq="spread" data-seq-index="2" data-anim="slide-left" data-anim-out="exit-right">
       <div class="ba-tag">After</div>
       {% if c['right']['title'] %}<div class="ba-title">{{ c['right']['title'] }}</div>{% endif %}
       <p class="ba-text">{{ c['right']['text'] }}</p>
     </div>
   </div>
   {% if c['verdict'] %}
-  <div class="clip layout-verdict" data-seq="tail" data-anim="rise">{{ c['verdict'] }}</div>
+  <div class="clip layout-verdict" data-seq="tail" data-anim="rise" data-anim-out="sink">{{ c['verdict'] }}</div>
   {% endif %}
 </div>

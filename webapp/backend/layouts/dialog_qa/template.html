@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="qa-list" data-count="{{ pairs|length }}">
     {% for p in pairs %}
-    <div class="clip qa-block" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise">
+    <div class="clip qa-block" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="rise" data-anim-out="sink">
       {% if p['q'] %}
       <div class="qa-line qa-q"><span class="qa-mark q">Q</span><p>{{ p['q'] }}</p></div>
       {% endif %}

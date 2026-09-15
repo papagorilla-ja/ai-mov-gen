@@ -2,7 +2,7 @@
 <div class="slide-body-area" data-fit>
   <div class="card-grid" data-count="{{ count }}">
     {% for it in c['items'] %}
-    <div class="clip info-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop">
+    <div class="clip info-card" data-seq="spread" data-seq-index="{{ loop.index0 }}" data-anim="pop" data-anim-out="contract">
       <div class="info-card-mark">
         {% if it['icon'] and icon(it['icon']) %}
           {{ icon(it['icon']) }}

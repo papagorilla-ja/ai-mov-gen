@@ -285,6 +285,41 @@
   // 最後の 0.4 秒だけ図が崩れる、という分かりにくい壊れ方をするため。
   const EXIT_DURATION = 0.4;
 
+  // 退場の語彙。data-anim-out でレイアウト側が宣言する。未指定は fade（従来どおり）。
+  //
+  // 登場より控えめにしてあるのは、シーン切替のトランジション（data-transition）が
+  // 直後に重なるため。両方が派手だと終わり際がうるさくなる。
+  //
+  // transform を使う語彙は、下の「安全網」を通った要素にしか適用されない。
+  const EXITS = {
+    fade:         {},                    // 透明度だけ（既定）
+    sink:         { y: 20 },             // 下へ沈む（rise の逆）
+    "exit-left":  { x: -40 },            // 左へ抜ける（slide-right の逆）
+    "exit-right": { x: 40 },             // 右へ抜ける（slide-left の逆）
+    contract:     { scale: 0.92 },       // 縮んで消える（図解の収束）
+  };
+  // 上へ抜ける lift は、上から登場する語彙が無いため置いていない
+  // （draw-left を置いていないのと同じ理由）。
+  const DEFAULT_EXIT = "fade";
+
+  /**
+   * この要素で transform を伴う退場を許してよいか。
+   *
+   * 駄目なのは 2 つ。
+   *   1. data-motion を持つ要素 … Ken Burns が尺いっぱい transform を握っており、
+   *      退場でも触ると最後の 0.4 秒だけ毎フレーム取り合いになる
+   *   2. CSS 側で transform を持つ要素 … 中央寄せ（translate(-50%,-50%)）などが
+   *      入っている。退場で transform を書くとその指定が失われ、
+   *      最後の一瞬だけ位置が飛ぶという分かりにくい壊れ方をする
+   *
+   * 判定はこのループが要素へ触る前に行うこと。GSAP が transform を書いた後だと
+   * 2 の判定が常に真になってしまう（自分で書いた値を見てしまう）。
+   */
+  function canTransformOnExit(el) {
+    if (el.hasAttribute("data-motion")) return false;
+    return getComputedStyle(el).transform === "none";
+  }
+
   // ---- count-up の実装 ----
   //
   // 「42.5%」「1,200 件」「約 3.2 倍」のように、数値の前後に文字が付く前提で書く。
@@ -396,6 +431,17 @@
       // どちらから来た秒数でも、動画全体で同じ比率で伸び縮みさせるため。
       toVars.duration *= motionScale;
 
+      // 退場の指定を解決する。GSAP が transform を書く前に判定すること。
+      const outName = el.getAttribute("data-anim-out");
+      if (outName && !(outName in EXITS)) {
+        console.warn(`[anim] 未定義の data-anim-out="${outName}" を既定 (${DEFAULT_EXIT}) で描画します`);
+      }
+      let exitVars = EXITS[outName] || EXITS[DEFAULT_EXIT];
+      if (exitVars !== EXITS[DEFAULT_EXIT] && !canTransformOnExit(el)) {
+        // 安全網。宣言はあるが transform を動かせない要素なので透明度だけにする。
+        exitVars = EXITS[DEFAULT_EXIT];
+      }
+
       gsap.set(el, { opacity: 0 });
       tl.fromTo(el, fromVars, toVars, start);
       // CSS プロパティの補間では表せない動き（数字のカウントなど）を足す。
@@ -403,7 +449,9 @@
 
       const exitSec = EXIT_DURATION * motionScale;
       const exitAt = Math.max(start, start + duration - exitSec);
-      tl.to(el, { opacity: 0, duration: exitSec, ease: "power2.in" }, exitAt);
+      // 退場も ease は power2.in で固定する。動きの性格の back 系 ease は
+      // 行き過ぎてから戻るため、消えていく要素に当てると不自然になる。
+      tl.to(el, { opacity: 0, ...exitVars, duration: exitSec, ease: "power2.in" }, exitAt);
     }
   });
 
