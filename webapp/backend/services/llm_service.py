@@ -420,12 +420,34 @@ async def generate_slide_narration(
     return text.strip()
 
 
+# ---- 貼り付けテキストの見積もり -------------------------------------------
+# いずれも実測値。画面側はこれを /scenario/paste-limits 経由で受け取る。
+TOKENS_PER_CHAR_JA = 0.60     # 日本語の 1 文字あたりのトークン数
+PROMPT_TOKENS_PER_SEC = 1190  # プロンプトの前処理速度
+
+# 貼り付けを受け付ける上限。LM Studio 側のコンテキスト（既定 262,144）を
+# 本当に超える水準だけを弾く。研修資料を丸ごと貼る使い方を残したいので、
+# 「長いと遅い」は画面側の目安表示で伝え、ここでは拒否しない。
+#
+# 20 万字 ≒ 12 万トークン。テンプレートと出力の余地を差し引いても、
+# これを超えるならコンテキスト設定を下げている環境で確実に破綻する。
+MAX_PASTE_CHARS = 200_000
+
+
 async def split_text_to_scenes(text: str, breadth: str | None = None) -> str:
     """プレーンテキストからシーン分割提案の生の応答を生成する。
 
     作るのは章立て（タイトル・あらすじ・情報の型）だけ。
     スライドの中身は後工程（generate_scene_content）で型ごとに深掘りする。
     """
+    if len(text) > MAX_PASTE_CHARS:
+        # ここで弾かないと、LLM 側のコンテキスト超過が
+        # 「ローカル LLM の呼び出しに失敗しました」としか出ず原因が分からない。
+        raise ValueError(
+            f"貼り付けたテキストが長すぎます（{len(text):,} 文字）。"
+            f"{MAX_PASTE_CHARS:,} 文字以下に分けてから実行してください。"
+        )
+
     prompt = (PROMPT_B_TEMPLATE
               .replace("{{type_menu}}", _prompts.type_menu(layouts.allowed_types(breadth)))
               .replace("{{pasted_text}}", text))

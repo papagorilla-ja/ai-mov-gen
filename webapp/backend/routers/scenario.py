@@ -28,6 +28,9 @@ from schemas.scenario import (
 from services.llm_service import (
     extract_outline_proposal,
     generate_slide_narration,
+    MAX_PASTE_CHARS,
+    PROMPT_TOKENS_PER_SEC,
+    TOKENS_PER_CHAR_JA,
     split_text_to_scenes,
     send_chat_message
 )
@@ -495,6 +498,21 @@ async def from_pptx(
         warnings=warnings,
     )
 
+@router.get("/scenario/paste-limits")
+async def paste_limits():
+    """テキスト貼り付けの上限と、待ち時間を見積もるための係数を返す。
+
+    画面側に数値を直書きすると必ずサーバーとずれるため、ここを唯一の正とする。
+    （背景モチーフやレイアウトの選択肢を /style-options や /layouts が
+      配っているのと同じ考え方。）
+    """
+    return {
+        "max_chars": MAX_PASTE_CHARS,
+        "tokens_per_char": TOKENS_PER_CHAR_JA,
+        "prompt_tokens_per_sec": PROMPT_TOKENS_PER_SEC,
+    }
+
+
 @router.post("/videos/{video_id}/scenario/from-text", response_model=ScenarioRead)
 async def from_text(
     video_id: str,
@@ -510,6 +528,20 @@ async def from_text(
     # Route B もチャットと同じ 2 段階にする。ここで作るのは章立てだけで、
     # スライドの中身とナレーションは後続の一括生成（generate-content-all）が
     # 型ごとの専用プロンプトで深掘りする。
+    # 長すぎる貼り付けはここで明確に断る。
+    # 以前は上限が無く、そのまま LLM へ投げていたため、コンテキストを超えると
+    # 「ローカル LLM の呼び出しに失敗しました」としか出ず原因が分からなかった。
+    # なお通常の長さ（数千〜数万字）は弾かない。長いと遅いことは画面側が
+    # 文字数と目安時間で伝える。
+    if len(payload.text) > MAX_PASTE_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"貼り付けたテキストが長すぎます（{len(payload.text):,} 文字）。"
+                f"{MAX_PASTE_CHARS:,} 文字以下に分けてから実行してください。"
+            ),
+        )
+
     breadth = await get_layout_breadth(video_id, db)
     outline = None
     try:

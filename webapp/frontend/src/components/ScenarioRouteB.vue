@@ -8,13 +8,29 @@
       label="シナリオテキストを貼り付けてください"
       rows="10"
       placeholder="スライドごとに分割したいナレーション原稿や、プレゼンテーションの構成をここに貼り付けます。&#10;AI が自動でスライド構成とナレーションをシーンに分割・生成します。"
-      class="mb-4 glass-card"
+      class="mb-2 glass-card"
       hide-details
     />
 
+    <!-- 押してから何も分からないまま待たされるのを避けるため、
+         貼った時点で分量と待ち時間の目安を出す。 -->
+    <div class="d-flex align-center justify-space-between mb-4 text-caption">
+      <span :class="tooLong ? 'text-error' : 'text-medium-emphasis'">
+        {{ charCount.toLocaleString() }} 文字
+        <template v-if="limits.max_chars"> / 上限 {{ limits.max_chars.toLocaleString() }} 文字</template>
+      </span>
+      <span v-if="charCount > 0 && !tooLong" class="text-medium-emphasis">
+        解析に {{ estimateLabel }} ほどかかります
+      </span>
+    </div>
+
+    <v-alert v-if="tooLong" type="error" variant="tonal" density="compact" class="mb-4 text-caption">
+      テキストが長すぎます。{{ limits.max_chars.toLocaleString() }} 文字以下に分けてから実行してください。
+    </v-alert>
+
     <v-btn
       color="primary"
-      :disabled="!text.trim()"
+      :disabled="!text.trim() || tooLong"
       :loading="scenarioStore.loading"
       block
       class="mb-4"
@@ -67,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useScenarioStore } from '@/stores/scenario'
 import { useUiStore } from '@/stores/ui'
 import { api } from '@/api/index.js'
@@ -86,6 +102,30 @@ const ui = useUiStore()
 
 const text = ref('')
 const previewScenes = ref([])
+
+// 上限と見積もりの係数はサーバーが持つ（/scenario/paste-limits）。
+// 画面に数値を直書きすると必ずサーバーとずれるため取りに行く。
+// 取得に失敗しても入力は妨げない（上限チェックはサーバー側でも行う）。
+const limits = ref({ max_chars: 0, tokens_per_char: 0.6, prompt_tokens_per_sec: 1190 })
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/scenario/paste-limits')
+    limits.value = data
+  } catch (e) {
+    console.warn('貼り付けの上限を取得できませんでした', e)
+  }
+})
+
+const charCount = computed(() => text.value.length)
+const tooLong = computed(() => limits.value.max_chars > 0 && charCount.value > limits.value.max_chars)
+
+const estimateLabel = computed(() => {
+  const sec = charCount.value * limits.value.tokens_per_char / limits.value.prompt_tokens_per_sec
+  if (sec < 5) return '数秒'
+  if (sec < 60) return `${Math.round(sec / 5) * 5} 秒`
+  return `${Math.round(sec / 60)} 分`
+})
 
 const generateFromText = async () => {
   if (!text.value.trim()) return
